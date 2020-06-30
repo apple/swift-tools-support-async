@@ -8,6 +8,8 @@
 
 import Foundation
 
+import TSCUtility
+
 
 /// Run the given computations on a given array in batches, exercising
 /// a specified amount of parallelism.
@@ -50,7 +52,7 @@ public struct LLBBatchingFutureOperationQueue {
     public init(name: String, group: LLBFuturesDispatchGroup, maxConcurrentOperationCount maxOpCount: Int, qualityOfService: QualityOfService = .default) {
         self.group = group
         self.maxOpCount = maxOpCount
-        self.operationQueue = OperationQueue(llbWithName: name, maxConcurrentOperationCount: maxOpCount)
+        self.operationQueue = OperationQueue(tsf_withName: name, maxConcurrentOperationCount: maxOpCount)
         self.operationQueue.qualityOfService = qualityOfService
     }
 
@@ -88,7 +90,7 @@ public struct LLBBatchingFutureOperationQueue {
     /// Do not wait for all executions to complete, returning individual futures.
     @inlinable
     public func executeNoWait<A,T>(_ args: [A], minStride: Int = 1, maxStride: Int = Int.max, _ body: @escaping (ArraySlice<A>) throws -> [T]) -> [LLBFuture<[T]>] {
-        let batches: [ArraySlice<A>] = args.llbSliceBy(maxStride: max(minStride, min(maxStride, args.count / maxOpCount)))
+        let batches: [ArraySlice<A>] = args.tsc_sliceBy(maxStride: max(minStride, min(maxStride, args.count / maxOpCount)))
         return batches.map{arg in execute{try body(arg)}}
     }
 

@@ -6,12 +6,16 @@
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
-import Foundation
-
-public extension OperationQueue {
-    convenience init(llbWithName: String, maxConcurrentOperationCount: Int) {
-        self.init()
+extension LLBDirectoryEntry {
+    public init(name: String, type: LLBFileType, size: Int) {
         self.name = name
-        self.maxConcurrentOperationCount = maxConcurrentOperationCount
+        self.type = type
+        self.size = .init(clamping: size)
+    }
+
+    public init(name: String, type: LLBFileType, size: UInt64) {
+        self.name = name
+        self.type = type
+        self.size = size
     }
 }

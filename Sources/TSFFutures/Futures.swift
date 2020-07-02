@@ -8,6 +8,7 @@
 
 import NIO
 
+import TSCBasic
 import TSCUtility
 
 public typealias LLBFuture<T> = NIO.EventLoopFuture<T>
@@ -49,5 +50,24 @@ public extension Context {
         set {
             self[ObjectIdentifier(LLBFuturesDispatchGroup.self)] = newValue
         }
+    }
+}
+
+extension LLBFuture {
+    public func tsf_unwrapOptional<T>(
+        orError error: Swift.Error
+    ) -> EventLoopFuture<T> where Value == T? {
+        self.flatMapThrowing { value in
+            guard let value = value else {
+                throw error
+            }
+            return value
+        }
+    }
+
+    public func tsf_unwrapOptional<T>(
+        orStringError error: String
+    ) -> EventLoopFuture<T> where Value == T? {
+        tsf_unwrapOptional(orError: StringError(error))
     }
 }

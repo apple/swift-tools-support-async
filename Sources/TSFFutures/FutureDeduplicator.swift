@@ -148,4 +148,92 @@ public class LLBFutureDeduplicator<Key: Hashable, Value> {
 
         return promise.futureResult
     }
+
+    @inlinable
+    public func values(for keys: [Key], with resolver: ([Key]) -> LLBFuture<[Value]>) -> [LLBFuture<Value>] {
+        let (rv, created, promises): ([LLBFuture<Value>], [Key], [LLBPromise<Value>]) = lock.withLock {
+            let now = DispatchTime.now()
+
+            var rv = [LLBFuture<Value>]()
+            var created = [Key]()
+            var promises = [LLBPromise<Value>]()
+            let maxResultCount = keys.count
+            rv.reserveCapacity(maxResultCount)
+            created.reserveCapacity(maxResultCount)
+            promises.reserveCapacity(maxResultCount)
+
+            for key in keys {
+                if let valueFuture = lockedCacheGet(key: key) {
+                    rv.append(valueFuture)
+                    continue
+                }
+
+                if let (resultPromise, expires) = inFlightRequests[key] {
+                    if expires >= now {
+                        rv.append(resultPromise.futureResult)
+                        continue
+                    }
+                }
+
+                // Stop deduplicating requests after a long-ish timeout,
+                // just in case there is a particularly long CAS lag.
+                let expires = now + partialResultExpiration
+
+                // Cache for future use.
+                let promise = self.group.next().makePromise(of: Value.self)
+                self.inFlightRequests[key] = (promise, expires)
+                rv.append(promise.futureResult)
+                created.append(key)
+                promises.append(promise)
+            }
+
+            return (rv, created, promises)
+        }
+
+        // If the promise was created, fetch from the database.
+        guard created.count > 0 else {
+            return rv
+        }
+
+        resolver(created).map { results in
+            self.lock.withLockVoid {
+                for idx in 0..<created.count {
+                    let key = created[idx]
+                    let promise = promises[idx]
+                    guard self.inFlightRequests[key]?.result.futureResult === promise.futureResult else {
+                        continue
+                    }
+                    // Resolved, done.
+                    self.inFlightRequests[key] = nil
+                }
+                for (key, promise) in zip(created, promises) {
+                    self.lockedCacheSet(key, promise.futureResult)
+                }
+            }
+            for (promise, result) in zip(promises, results) {
+                promise.succeed(result)
+            }
+        }.whenFailure { error in
+            let now = DispatchTime.now()
+            let expires: DispatchTimeInterval? = self.expirationInterval(error)
+            self.lock.withLockVoid {
+                for (key, promise) in zip(created, promises) {
+                    guard self.inFlightRequests[key]?.result.futureResult === promise.futureResult else {
+                        continue
+                    }
+                    if let interval = expires {
+                        self.inFlightRequests[key] = (promise, now + interval)
+                    } else {
+                        self.inFlightRequests[key] = nil
+                    }
+                }
+            }
+
+            for promise in promises {
+                promise.fail(error)
+            }
+        }
+
+        return rv
+    }
 }

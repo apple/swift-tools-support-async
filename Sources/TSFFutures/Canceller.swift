@@ -83,6 +83,7 @@ public final class LLBCanceller {
 
         guard finalReason_ == nil else {
             // Already cancelled or abandoned.
+            mutex_.unlock()
             return
         }
 

@@ -32,6 +32,12 @@ let package = Package(
                 "NIO", "SwiftToolsSupport-auto",
             ]
         ),
+        .testTarget(
+            name: "TSFFuturesTests",
+            dependencies: [
+                "TSFFutures",
+            ]
+        ),
         .target(
             name: "TSFUtility",
             dependencies: [

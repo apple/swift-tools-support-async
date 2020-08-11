@@ -9,7 +9,7 @@ let package = Package(
             targets: ["TSFFutures", "TSFUtility"]),
         .library(
             name: "SwiftToolsSupportCAS",
-            targets: ["TSFCAS", "TSFCASFileTree"]),
+            targets: ["TSFCAS", "TSFCASFileTree", "TSFCASUtilities"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.8.0"),
@@ -51,9 +51,19 @@ let package = Package(
                 "TSFFutures", "TSFUtility", "CBLAKE3", "SwiftProtobuf",
             ]
         ),
+        .target(
+            name: "TSFCASUtilities",
+            dependencies: [
+                "TSFCAS",
+            ]
+        ),
         .testTarget(
             name: "TSFCASTests",
             dependencies: ["TSFCAS"]
+        ),
+        .testTarget(
+            name: "TSFCASUtilitiesTests",
+            dependencies: ["TSFCASUtilities"]
         ),
         .target(
             name: "TSFCASFileTree",

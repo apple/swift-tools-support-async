@@ -75,7 +75,7 @@ public struct LLBLinkedListStreamReader: LLBCASStreamReader {
             return db.group.next().makeSucceededFuture(true)
         }
 
-        return db.get(id, ctx).flatMap { [self, db] node -> LLBFuture<Bool> in
+        return db.get(id, ctx).flatMap { [db] node -> LLBFuture<Bool> in
             guard let node = node, let channel = node.data.getBytes(at: 0, length: 1)?.first else {
                 return db.group.next().makeFailedFuture(LLBCASStreamError.invalid)
             }
@@ -84,7 +84,7 @@ public struct LLBLinkedListStreamReader: LLBCASStreamReader {
             // If there are 2 refs, it's an intermediate node in the linked list, so we schedule a read of the next
             // node before scheduling a read of the current node.
             if node.refs.count == 2 {
-                readChainFuture = innerRead(
+                readChainFuture = self.innerRead(
                     id: node.refs[1],
                     channels: channels,
                     lastReadID: lastReadID,

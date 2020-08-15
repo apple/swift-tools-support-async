@@ -75,7 +75,7 @@ public struct LLBLinkedListStreamReader: LLBCASStreamReader {
             return db.group.next().makeSucceededFuture(true)
         }
 
-        return db.get(id, ctx).flatMap { node -> LLBFuture<Bool> in
+        return db.get(id, ctx).flatMap { [self, db] node -> LLBFuture<Bool> in
             guard let node = node, let channel = node.data.getBytes(at: 0, length: 1)?.first else {
                 return db.group.next().makeFailedFuture(LLBCASStreamError.invalid)
             }
@@ -96,7 +96,7 @@ public struct LLBLinkedListStreamReader: LLBCASStreamReader {
                 readChainFuture = db.group.next().makeSucceededFuture(true)
             }
 
-            return readChainFuture.flatMap { shouldContinue -> LLBFuture<Bool> in
+            return readChainFuture.flatMap { [db] shouldContinue -> LLBFuture<Bool> in
                 // If we don't want to continue reading, or if the channel is not requested, close the current chain
                 // and propagate the desire to keep on reading.
                 guard shouldContinue && channels?.contains(channel) ?? true else {

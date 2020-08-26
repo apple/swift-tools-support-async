@@ -25,13 +25,13 @@ class LinkedListStreamTests: XCTestCase {
 
         writer.append(data: LLBByteBuffer(string: "hello, world!"), ctx)
 
-        let reader = LLBLinkedListStreamReader(db)
+        let reader = LLBCASStreamReader(db)
 
         let latestID = try writer.latestID!.wait()
 
         var contentRead = false
         try reader.read(id: latestID, ctx) { (channel, data) -> Bool in
-            let stringData = String(decoding: Data(data.readableBytesView), as: UTF8.self)
+            let stringData = String(decoding: Data(data), as: UTF8.self)
             XCTAssertEqual(stringData, "hello, world!")
             contentRead = true
             return true
@@ -52,14 +52,14 @@ class LinkedListStreamTests: XCTestCase {
             writer.append(data: LLBByteBuffer(string: block), ctx)
         }
 
-        let reader = LLBLinkedListStreamReader(db)
+        let reader = LLBCASStreamReader(db)
 
         let latestID = try writer.latestID!.wait()
 
         var readStream = [String]()
 
         try reader.read(id: latestID, ctx) { (channel, data) -> Bool in
-            let block = String(decoding: Data(data.readableBytesView), as: UTF8.self)
+            let block = String(decoding: Data(data), as: UTF8.self)
             readStream.append(block)
             return true
         }.wait()
@@ -79,14 +79,14 @@ class LinkedListStreamTests: XCTestCase {
             writer.append(data: LLBByteBuffer(string: block), channel: channel, ctx)
         }
 
-        let reader = LLBLinkedListStreamReader(db)
+        let reader = LLBCASStreamReader(db)
 
         let latestID = try writer.latestID!.wait()
 
         var readStream = [String]()
 
         try reader.read(id: latestID, channels: [0, 1], ctx) { (channel, data) -> Bool in
-            let block = String(decoding: Data(data.readableBytesView), as: UTF8.self)
+            let block = String(decoding: Data(data), as: UTF8.self)
             readStream.append(block)
             return true
         }.wait()
@@ -108,7 +108,7 @@ class LinkedListStreamTests: XCTestCase {
             writer.append(data: LLBByteBuffer(string: block), ctx)
         }
 
-        let reader = LLBLinkedListStreamReader(db)
+        let reader = LLBCASStreamReader(db)
 
         let latestID = try writer.latestID!.wait()
 
@@ -126,7 +126,7 @@ class LinkedListStreamTests: XCTestCase {
                 return false
             }
 
-            let block = String(decoding: Data(data.readableBytesView), as: UTF8.self)
+            let block = String(decoding: Data(data), as: UTF8.self)
             readStream.append(block)
             return true
         }.wait()
@@ -155,14 +155,14 @@ class LinkedListStreamTests: XCTestCase {
             writer.append(data: LLBByteBuffer(string: block), ctx)
         }
 
-        let reader = LLBLinkedListStreamReader(db)
+        let reader = LLBCASStreamReader(db)
 
         let latestID = try writer.latestID!.wait()
 
         var readStream = [String]()
 
         try reader.read(id: latestID, lastReadID: startMarker, ctx) { (channel, data) -> Bool in
-            let block = String(decoding: Data(data.readableBytesView), as: UTF8.self)
+            let block = String(decoding: Data(data), as: UTF8.self)
             readStream.append(block)
             return true
         }.wait()

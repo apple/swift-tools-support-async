@@ -54,7 +54,7 @@ let package = Package(
         .target(
             name: "TSFCASUtilities",
             dependencies: [
-                "TSFCAS",
+                "TSFCAS", "TSFCASFileTree",
             ]
         ),
         .testTarget(

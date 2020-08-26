@@ -8,17 +8,26 @@
 
 import TSCUtility
 import TSFCAS
+import TSFCASFileTree
+
+private extension String {
+    func prepending(_ prefix: String) -> String {
+        return prefix + self
+    }
+}
 
 /// Basic writer implementation that resembles a linked list where each node contains control data (like the channel)
 /// and refs[0] always points to the dataID of the data chunk and refs[1] has the data ID for the next node in the
 /// chain, if it's not the last node. This implementation is not thread safe.
-public struct LLBLinkedListStreamWriter: LLBCASStreamWriter {
+public struct LLBLinkedListStreamWriter {
     private let db: LLBCASDatabase
+    private let ext: String
 
     public private(set) var latestID: LLBFuture<LLBDataID>?
 
-    public init(_ db: LLBCASDatabase) {
+    public init(_ db: LLBCASDatabase, ext: String? = nil) {
         self.db = db
+        self.ext = ext?.prepending(".") ?? ""
     }
 
     @discardableResult
@@ -26,13 +35,25 @@ public struct LLBLinkedListStreamWriter: LLBCASStreamWriter {
         let latest = (
             // Append on the previously cached node, or use nil as sentinel if this is the first write.
             latestID?.map { $0 } ?? db.group.next().makeSucceededFuture(nil)
-        ).flatMap { [db] (currentDataID: LLBDataID?) -> LLBFuture<LLBDataID> in
-            db.put(data: data, ctx).flatMap { [db] contentID in
-                // Put the channel as the only byte in the control node.
-                let controlData = LLBByteBuffer(bytes: [channel])
-                // compactmap to remove the currentDataID in case it was the nil sentinel.
-                let refs: [LLBDataID] = [contentID, currentDataID].compactMap { $0 }
-                return db.put(refs: refs, data: controlData, ctx)
+        ).flatMap { [db, ext] (currentDataID: LLBDataID?) -> LLBFuture<LLBDataID> in
+            db.put(data: data, ctx).flatMap { [db, ext] contentID in
+
+                var entries = [
+                    LLBDirectoryEntryID(
+                        info: .init(name: "\(channel)\(ext)", type: .plainFile, size: data.readableBytes),
+                        id: contentID
+                    ),
+                ]
+
+                if let currentDataID = currentDataID {
+                    entries.append(
+                        LLBDirectoryEntryID(
+                            info: .init(name: "prev", type: .directory, size: 0),
+                            id: currentDataID
+                        )
+                    )
+                }
+                return LLBCASFileTree.create(files: entries, in: db, ctx).map { $0.id }
             }
         }
 
@@ -41,77 +62,10 @@ public struct LLBLinkedListStreamWriter: LLBCASStreamWriter {
     }
 }
 
-public struct LLBLinkedListStreamReader: LLBCASStreamReader {
-    private let db: LLBCASDatabase
-
-    public init(_ db: LLBCASDatabase) {
-        self.db = db
-    }
-
-    public func read(
-        id: LLBDataID,
-        channels: [UInt8]?,
-        lastReadID: LLBDataID?,
-        _ ctx: Context,
-        readerBlock: @escaping (UInt8, LLBByteBuffer) throws -> Bool
-    ) -> LLBFuture<Void> {
-        return innerRead(
-            id: id,
-            channels: channels,
-            lastReadID: lastReadID,
-            ctx,
-            readerBlock: readerBlock
-        ).map { _ in () }
-    }
-
-    private func innerRead(
-        id: LLBDataID,
-        channels: [UInt8]? = nil,
-        lastReadID: LLBDataID? = nil,
-        _ ctx: Context,
-        readerBlock: @escaping (UInt8, LLBByteBuffer) throws -> Bool
-    ) -> LLBFuture<Bool> {
-        if id == lastReadID {
-            return db.group.next().makeSucceededFuture(true)
-        }
-
-        return db.get(id, ctx).flatMap { [db] node -> LLBFuture<Bool> in
-            guard let node = node, let channel = node.data.getBytes(at: 0, length: 1)?.first else {
-                return db.group.next().makeFailedFuture(LLBCASStreamError.invalid)
-            }
-
-            let readChainFuture: LLBFuture<Bool>
-            // If there are 2 refs, it's an intermediate node in the linked list, so we schedule a read of the next
-            // node before scheduling a read of the current node.
-            if node.refs.count == 2 {
-                readChainFuture = self.innerRead(
-                    id: node.refs[1],
-                    channels: channels,
-                    lastReadID: lastReadID,
-                    ctx,
-                    readerBlock: readerBlock
-                )
-            } else {
-                // If this is the last node, schedule a sentinel read that returns to keep on reading.
-                readChainFuture = db.group.next().makeSucceededFuture(true)
-            }
-
-            return readChainFuture.flatMap { [db] shouldContinue -> LLBFuture<Bool> in
-                // If we don't want to continue reading, or if the channel is not requested, close the current chain
-                // and propagate the desire to keep on reading.
-                guard shouldContinue && channels?.contains(channel) ?? true else {
-                    return db.group.next().makeSucceededFuture(shouldContinue)
-                }
-
-                // Read the node since it's expected to exist.
-                return db.get(node.refs[0], ctx).flatMapThrowing { (dataNode: LLBCASObject?) -> Bool in
-                    guard let dataNode = dataNode else {
-                        throw LLBCASStreamError.missing
-                    }
-
-                    return try readerBlock(channel, dataNode.data)
-                }
-            }
-        }
+public extension LLBLinkedListStreamWriter {
+    @discardableResult
+    @inlinable
+    mutating func append(data: LLBByteBuffer, _ ctx: Context) -> LLBFuture<LLBDataID> {
+        return append(data: data, channel: 0, ctx)
     }
 }

@@ -50,7 +50,7 @@ public struct LLBCASStreamReader {
 
         return LLBCASFSClient(db).load(id, ctx).flatMap { node in
             guard let tree = node.tree else {
-                return db.group.next().makeFailedFuture(LLBCASStreamError.invalid)
+                return self.db.group.next().makeFailedFuture(LLBCASStreamError.invalid)
             }
 
             let readChainFuture: LLBFuture<Bool>
@@ -67,14 +67,14 @@ public struct LLBCASStreamReader {
                 )
             } else {
                 // If this is the last node, schedule a sentinel read that returns to keep on reading.
-                readChainFuture = db.group.next().makeSucceededFuture(true)
+                readChainFuture = self.db.group.next().makeSucceededFuture(true)
             }
 
-            return readChainFuture.flatMap { [db] shouldContinue -> LLBFuture<Bool> in
+            return readChainFuture.flatMap { shouldContinue -> LLBFuture<Bool> in
                 // If we don't want to continue reading, or if the channel is not requested, close the current chain
                 // and propagate the desire to keep on reading.
                 guard shouldContinue else {
-                    return db.group.next().makeSucceededFuture(shouldContinue)
+                    return self.db.group.next().makeSucceededFuture(shouldContinue)
                 }
 
                 let files = tree.files.filter {
@@ -82,19 +82,19 @@ public struct LLBCASStreamReader {
                 }
 
                 guard files.count == 1, let (contentID, _) = tree.lookup(files[0].name) else {
-                    return db.group.next().makeFailedFuture(LLBCASStreamError.invalid)
+                    return self.db.group.next().makeFailedFuture(LLBCASStreamError.invalid)
                 }
 
                 let channelOpt = files.first.flatMap { $0.name.split(separator: ".").first }.flatMap { UInt8($0) }
 
                 guard let channel = channelOpt,
                       channels?.contains(channel) ?? true else {
-                    return db.group.next().makeSucceededFuture(true)
+                    return self.db.group.next().makeSucceededFuture(true)
                 }
 
-                return LLBCASFSClient(db).load(contentID, ctx).flatMap { node in
+                return LLBCASFSClient(self.db).load(contentID, ctx).flatMap { node in
                     guard let blob = node.blob else {
-                        return db.group.next().makeFailedFuture(LLBCASStreamError.missing)
+                        return self.db.group.next().makeFailedFuture(LLBCASStreamError.missing)
                     }
 
                     return blob.read(ctx).flatMapThrowing { byteBufferView in

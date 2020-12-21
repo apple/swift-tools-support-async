@@ -1,8 +1,7 @@
 import Foundation
+import NIOConcurrencyHelpers
 import TSCUtility
 import TSFCAS
-
-@_implementationOnly import NIOConcurrencyHelpers
 
 fileprivate extension LLBByteBuffer {
     var availableCapacity: Int { capacity - readableBytes }

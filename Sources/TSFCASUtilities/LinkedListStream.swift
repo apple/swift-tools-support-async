@@ -38,7 +38,7 @@ public struct LLBLinkedListStreamWriter {
     public mutating func append(data: LLBByteBuffer, channel: UInt8, _ ctx: Context) -> LLBFuture<LLBDataID> {
         let latestData = (
             // Append on the previously cached node, or use nil as sentinel if this is the first write.
-            latestData?.map{ $0 } ?? db.group.next().makeSucceededFuture(nil)
+            latestData?.map { $0 } ?? db.group.next().makeSucceededFuture(nil)
         ).flatMap { [db, ext] (previousData: (id: LLBDataID, aggregateSize: Int)?) -> LLBFuture<(id: LLBDataID, aggregateSize: Int)> in
             db.put(data: data, ctx).flatMap { [db, ext] contentID in
 

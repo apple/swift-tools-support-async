@@ -10,6 +10,7 @@ import XCTest
 
 import TSFCAS
 import TSFCASUtilities
+import TSFCASFileTree
 
 import TSCBasic
 import TSCUtility
@@ -94,6 +95,33 @@ class LinkedListStreamTests: XCTestCase {
         let filteredWriteStream = writeStream.filter { $0.0 <= 1 }.map { $0.1 }
 
         XCTAssertEqual(readStream, filteredWriteStream)
+    }
+
+    func testStreamAggregateSize() throws {
+        let db = LLBInMemoryCASDatabase(group: group)
+        let ctx = Context()
+
+        let writeStream: [(UInt8, String)] = Array(0...1).map { ($0 % 2, "Stream line \($0)") }
+
+        var writer = LLBLinkedListStreamWriter(db)
+
+        for (channel, block) in writeStream {
+            writer.append(data: LLBByteBuffer(string: block), channel: channel, ctx)
+        }
+
+        let reader = LLBCASStreamReader(db)
+
+        let latestID = try writer.latestID!.wait()
+
+        let node = try LLBCASFSClient(db).load(latestID, ctx).wait()
+
+        var readLength: Int = 0
+        try reader.read(id: latestID, ctx) { (channel, data) -> Bool in
+            readLength += data.count
+            return true
+        }.wait()
+
+        XCTAssertEqual(node.size(), readLength)
     }
 
     func testStreamReadLimit() throws {

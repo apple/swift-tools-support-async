@@ -23,7 +23,11 @@ public struct LLBLinkedListStreamWriter {
     private let db: LLBCASDatabase
     private let ext: String
 
-    public private(set) var latestID: LLBFuture<LLBDataID>?
+    private var latestData: LLBFuture<(id: LLBDataID, aggregateSize: Int)>?
+
+    public var latestID: LLBFuture<LLBDataID>? {
+        latestData?.map { $0.id }
+    }
 
     public init(_ db: LLBCASDatabase, ext: String? = nil) {
         self.db = db
@@ -32,10 +36,10 @@ public struct LLBLinkedListStreamWriter {
 
     @discardableResult
     public mutating func append(data: LLBByteBuffer, channel: UInt8, _ ctx: Context) -> LLBFuture<LLBDataID> {
-        let latest = (
+        let latestData = (
             // Append on the previously cached node, or use nil as sentinel if this is the first write.
-            latestID?.map { $0 } ?? db.group.next().makeSucceededFuture(nil)
-        ).flatMap { [db, ext] (currentDataID: LLBDataID?) -> LLBFuture<LLBDataID> in
+            latestData?.map{$0} ?? db.group.next().makeSucceededFuture(nil)
+        ).flatMap { [db, ext] (previousData: (id: LLBDataID, aggregateSize: Int)?) -> LLBFuture<(id: LLBDataID, aggregateSize: Int)> in
             db.put(data: data, ctx).flatMap { [db, ext] contentID in
 
                 var entries = [
@@ -45,20 +49,25 @@ public struct LLBLinkedListStreamWriter {
                     ),
                 ]
 
-                if let currentDataID = currentDataID {
+                let aggregateSize: Int
+                if let (prevID, prevSize) = previousData {
                     entries.append(
                         LLBDirectoryEntryID(
-                            info: .init(name: "prev", type: .directory, size: 0),
-                            id: currentDataID
+                            info: .init(name: "prev", type: .directory, size: prevSize),
+                            id: prevID
                         )
                     )
+                    aggregateSize = prevSize + data.readableBytes
+                } else {
+                    aggregateSize = data.readableBytes
                 }
-                return LLBCASFileTree.create(files: entries, in: db, ctx).map { $0.id }
+
+                return LLBCASFileTree.create(files: entries, in: db, ctx).map { (id: $0.id, aggregateSize: aggregateSize) }
             }
         }
 
-        self.latestID = latest
-        return latest
+        self.latestData = latestData
+        return latestData.map { $0.id }
     }
 }
 

@@ -46,7 +46,7 @@ public final class TSCCASFileSystem: FileSystem {
         }
 
         let _result = try self.rootTree.lookup(path: path, in: self.db, ctx).wait()
-        guard let result = _result else { throw FileSystemError.noEntry }
+        guard let result = _result else { throw FileSystemError(.noEntry, path) }
 
         // HACK: If this is a symlink, check if it points to a directory.
         // Move this to LLBCASFileTree.lookup()
@@ -56,7 +56,7 @@ public final class TSCCASFileSystem: FileSystem {
         }
 
         let entry = try self.client.load(result.id, ctx).wait()
-        guard let tree = entry.tree else { throw FileSystemError.notDirectory }
+        guard let tree = entry.tree else { throw FileSystemError(.notDirectory, path) }
         return tree.files.map{ $0.name }
     }
 
@@ -99,46 +99,52 @@ public final class TSCCASFileSystem: FileSystem {
 
     public func readFileContents(_ path: AbsolutePath) throws -> ByteString {
         if path.isRoot {
-            throw FileSystemError.ioError
+            throw FileSystemError(.ioError(code: 0), path)
         }
 
         let result = try rootTree.lookup(path: path, in: db, ctx).wait()
-        guard let id = result?.id else { throw FileSystemError.noEntry }
+        guard let id = result?.id else { throw FileSystemError(.noEntry, path) }
 
         let entry = try client.load(id, ctx).wait()
-        guard let blob = entry.blob else { throw FileSystemError.ioError }
+        guard let blob = entry.blob else { throw FileSystemError(.ioError(code: 0), path) }
         let bytes = try blob.read(ctx).wait()
         return ByteString(bytes)
     }
 
     public func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
-        throw FileSystemError.unsupported
+        throw FileSystemError(.unsupported)
     }
 
     public func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
-        throw FileSystemError.unsupported
+        throw FileSystemError(.unsupported)
     }
 
     public func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
-        throw FileSystemError.unsupported
+        throw FileSystemError(.unsupported)
     }
 
     public func removeFileTree(_ path: AbsolutePath) throws {
-        throw FileSystemError.unsupported
+        throw FileSystemError(.unsupported)
     }
 
     public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
-        throw FileSystemError.unsupported
+        throw FileSystemError(.unsupported)
     }
 
     public func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
-        throw FileSystemError.unsupported
+        throw FileSystemError(.unsupported)
+    }
+
+    public var cachesDirectory: AbsolutePath? { nil }
+
+    public func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
+        throw FileSystemError(.unsupported)
     }
 
     public var currentWorkingDirectory: AbsolutePath? { nil }
 
     public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
-        throw FileSystemError.unsupported
+        throw FileSystemError(.unsupported)
     }
 
     public var homeDirectory: AbsolutePath { .root }

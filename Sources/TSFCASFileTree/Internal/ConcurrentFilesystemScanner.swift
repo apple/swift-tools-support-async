@@ -278,7 +278,7 @@ struct FilesystemPathInfo {
             // This can be a network FS.
             var statInfo = stat()
             guard lstat(path.pathString, &statInfo) != -1 else {
-                throw FileSystemError(errno: errno)
+                throw FileSystemError(errno: errno, path)
             }
             let ftype = FilesystemObjectType(st_mode: statInfo.st_mode)
             guard case .UNKNOWN = ftype else {
@@ -336,7 +336,7 @@ class FilesystemDirectoryIterator: IteratorProtocol {
     public init(_ path: AbsolutePath) throws {
         guard let dir = opendir(path.pathString) else {
             // The fd is owned by the caller if we throw.
-            throw FileSystemError(errno: errno)
+            throw FileSystemError(errno: errno, path)
         }
         self.path = path
         self.dir = dir

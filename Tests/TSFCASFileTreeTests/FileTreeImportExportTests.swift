@@ -142,7 +142,7 @@ class ImportExportTests: XCTestCase {
             let nonexistDir = somedir.appending(component: "nonexist")
             let db = LLBInMemoryCASDatabase(group: group)
             XCTAssertThrowsError(try LLBCASFileTree.import(path: nonexistDir, to: db, options: testOptions, ctx).wait()) { error in
-                XCTAssertEqual(error as? FileSystemError, FileSystemError.noEntry)
+                XCTAssertEqual(error as? FileSystemError, FileSystemError(.noEntry, nonexistDir))
             }
         }
     }

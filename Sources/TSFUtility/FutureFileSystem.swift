@@ -45,7 +45,7 @@ public struct LLBFutureFileSystem {
         return batchingQueue.execute {
             var sb = stat()
             guard stat(pathString, &sb) != -1 else {
-                throw FileSystemError(errno: errno)
+                throw FileSystemError(errno: errno, path)
             }
             return sb
         }
@@ -66,12 +66,12 @@ public struct LLBFutureFileSystem {
         // Fast path failed. Measure file size and try to swallow it whole.
         var sb = stat()
         guard fstat(fd, &sb) == 0 else {
-            throw FileSystemError.ioError
+            throw FileSystemError(.ioError(code: 0), try? AbsolutePath(validating: path))
         }
 
         if expectedFileSize > sb.st_size {
             // File size is less than what was already read in.
-            throw FileSystemError.ioError
+            throw FileSystemError(.ioError(code: 0), try? AbsolutePath(validating: path))
         } else if expectedFileSize == sb.st_size {
             // Avoid copying if the file is exactly 8kiB.
             return firstBuffer
@@ -100,13 +100,13 @@ public struct LLBFutureFileSystem {
         // Fast path failed. Measure file size and try to swallow it whole.
         var sb = stat()
         guard fstat(fd, &sb) == 0 else {
-            throw FileSystemError.ioError
+            throw FileSystemError(.ioError(code: errno), try? AbsolutePath(validating: path))
         }
 
         let data = try syncReadComplete(fd: fd, readSize: Int(sb.st_size))
         guard data.count == sb.st_size else {
             // File size is less than advertised.
-            throw FileSystemError.ioError
+            throw FileSystemError(.ioError(code: 0), try? AbsolutePath(validating: path))
         }
 
         return (contents: ArraySlice(data), stat: sb)
@@ -125,7 +125,8 @@ public struct LLBFutureFileSystem {
     public static func openImpl(_ path: String, flags: CInt = O_RDONLY) throws -> CInt {
         let fd = open(path, flags | O_CLOEXEC)
         guard fd != -1 else {
-            throw FileSystemError(errno: errno)
+            // FIXME: Need to fix FileSystemError to not require an AbsolutePath.
+            throw FileSystemError(errno: errno, (try? AbsolutePath(validating: path)) ?? .root)
         }
         return fd
     }
@@ -137,7 +138,8 @@ public struct LLBFutureFileSystem {
         while bufferOffset + offset < ptr.count {
             let (off, overflow) = fileOffset.addingReportingOverflow(offset)
             guard !overflow else {
-                throw FileSystemError(errno: ERANGE)
+                // FIXME: Need to fix FileSystemError to allow ERANGE.
+                throw FileSystemError(.unknownOSError)
             }
 
             let count = try unsafeReadImpl(fd: fd, ptr, bufferOffset: bufferOffset + offset, fileOffset: off)
@@ -158,7 +160,8 @@ public struct LLBFutureFileSystem {
 
         while true {
             guard let off = off_t(exactly: fileOffset) else {
-                throw FileSystemError(errno: ERANGE)
+                // FIXME: Need to fix FileSystemError to allow ERANGE.
+                throw FileSystemError(.unknownOSError)
             }
 
             let ret = pread(fd, ptr.baseAddress! + bufferOffset, ptr.count - bufferOffset, off)
@@ -169,7 +172,7 @@ public struct LLBFutureFileSystem {
                 return 0
             case -1:
                 guard errno == EINTR else {
-                    throw FileSystemError.ioError
+                    throw FileSystemError.init(.ioError(code: errno))
                 }
                 continue
             default:

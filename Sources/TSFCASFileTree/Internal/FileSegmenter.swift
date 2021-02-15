@@ -121,10 +121,10 @@ internal final class FileSegmenter {
 
         var sb = stat()
         guard fstat(fd, &sb) != -1 else {
-            throw FileSystemError(errno: errno)
+            throw FileSystemError(errno: errno, path)
         }
         guard (sb.st_mode & S_IFMT) == S_IFREG else {
-            throw FileSystemError.ioError
+            throw FileSystemError(.ioError(code: 0), path)
         }
 
         self.importPath = importPath
@@ -151,7 +151,7 @@ internal final class FileSegmenter {
         // This is a large file, mmap it and retain the mapping until EOL.
         let mmapReturnValue = mmap(nil, reportedSize, PROT_READ, MAP_FILE | MAP_PRIVATE, fd, 0)
         guard let basePointer = mmapReturnValue, basePointer != MAP_FAILED else {
-            throw FileSystemError(errno: errno)
+            throw FileSystemError(errno: errno, path)
         }
 
         posix_madvise(basePointer, reportedSize, POSIX_MADV_SEQUENTIAL | POSIX_MADV_WILLNEED)
@@ -182,7 +182,8 @@ internal final class FileSegmenter {
 
         let (fileOffset, overflow) = segmentSize.multipliedReportingOverflow(by: segmentNumber)
         guard !overflow else {
-            throw FileSystemError(errno: ERANGE)
+            // FIXME: Need to support ERANGE in FileSystemError.
+            throw FileSystemError(.unknownOSError)
         }
         let fileSize = Int(statInfo.st_size)
         let currentSegmentSize = min(fileSize - fileOffset, segmentSize)
@@ -240,7 +241,7 @@ internal final class FileSegmenter {
                 break
             case .Deleted, .Replaced:
                 close(newFD)
-                throw FileSystemError.noEntry
+                throw FileSystemError(.noEntry, path)
             case .Modified:
                 close(newFD)
                 throw Error.resourceChanged(reason: String(describing: inconsistency))
@@ -283,7 +284,7 @@ internal final class FileSegmenter {
             break
         case .Deleted, .Replaced:
             // The file was deleted at _some_ point in the middle of processing.
-            throw FileSystemError.noEntry
+            throw FileSystemError(.noEntry, path)
         case .Modified(let reason):
             throw Error.resourceChanged(reason: reason)
         }

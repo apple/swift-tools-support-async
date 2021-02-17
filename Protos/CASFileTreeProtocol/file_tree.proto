@@ -8,6 +8,8 @@
 
 syntax = "proto3";
 
+option java_package = "com.apple.CASFileTreeProtocol";
+
 enum LLBFileType {
     /// A plain file.
     PLAIN_FILE = 0x0;

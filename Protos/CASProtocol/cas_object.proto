@@ -8,8 +8,9 @@
 
 syntax = "proto3";
 
-import "CASProtocol/data_id.proto";
+option java_package = "com.apple.CASProtocol";
 
+import "CASProtocol/data_id.proto";
 
 /// LLBPBCASObject represents the serialized from of CASObjects.  It encodes the
 /// combination of the raw data of the object and its dependendent references.

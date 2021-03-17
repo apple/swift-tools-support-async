@@ -34,6 +34,16 @@ public struct LLBLinkedListStreamWriter {
         self.ext = ext?.prepending(".") ?? ""
     }
 
+    // This rebases the current logs onto a new data ID, potentially losing all the previous uploads if not saved
+    // previously. The newBase should be another dataID produced by a LLBLinkedListStreamWriter.
+    public mutating func rebase(onto newBase: LLBDataID, _ ctx: Context) {
+        self.latestData = LLBCASFSClient(db).load(newBase, ctx).map{
+            $0.tree
+        }.tsf_unwrapOptional(orStringError: "Expected an LLBCASTree").map { tree in
+            (id: tree.id, aggregateSize: tree.aggregateSize)
+        }
+    }
+
     @discardableResult
     public mutating func append(data: LLBByteBuffer, channel: UInt8, _ ctx: Context) -> LLBFuture<LLBDataID> {
         let latestData = (

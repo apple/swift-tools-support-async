@@ -26,6 +26,12 @@ public struct LLBBufferedStreamWriter {
         self.currentBuffer = LLBByteBufferAllocator.init().buffer(capacity: bufferSize)
     }
 
+    public mutating func rebase(onto newBase: LLBDataID, _ ctx: Context) {
+        lock.withLock {
+            outputWriter.rebase(onto: newBase, ctx)
+        }
+    }
+
     /// Writes a chunk of data into the stream. Flushes if the current buffer would overflow, or if the data to write
     /// is larger than the buffer size.
     mutating public func write(data: LLBByteBuffer, channel: UInt8, _ ctx: Context = .init()) {

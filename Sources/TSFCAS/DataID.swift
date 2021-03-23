@@ -1,6 +1,6 @@
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -17,27 +17,42 @@ import TSFUtility
 fileprivate enum DataIDKind: UInt8 {
     /// An id that is directly calculated based on a hash of the data.
     case directHash = 0
+    case shareableHash = 4
+
+    init?(from bytes: Data) {
+        guard let first = bytes.first,
+              let kind = DataIDKind(rawValue: first) else {
+            return nil
+        }
+        self = kind
+    }
+
+    init?(from substring: Substring) {
+        guard let first = substring.utf8.first,
+              first >= UInt8(ascii: "0") else {
+            return nil
+        }
+        self.init(rawValue: first - UInt8(ascii: "0"))
+    }
 }
 
 
 extension LLBDataID: Hashable, CustomDebugStringConvertible {
+
     /// Represent DataID as string to encode it in messages.
     /// Properties of the string: the first character represents the kind,
     /// then '~', then the Base64 encoding follows.
     public var debugDescription: String {
-        return "\(ArraySlice(bytes.dropFirst()).base64URL(prepending: [UInt8(ascii: "0") + bytes[0], UInt8(ascii: "~")]))"
+        return ArraySlice(bytes.dropFirst()).base64URL(prepending:
+            [(bytes.first ?? 15) + UInt8(ascii: "0"), UInt8(ascii: "~")])
     }
-    
+
     public init?(bytes: [UInt8]) {
-        switch bytes.count {
-        case let n where n < 2:
+        let data = Data(bytes)
+        guard DataIDKind(from: data) != nil else {
             return nil
-        default:
-            guard DataIDKind(rawValue: bytes[0]) != nil else {
-                return nil
-            }
-            self.bytes = Data(bytes)
         }
+        self.bytes = data
     }
 
     public init(directHash bytes: [UInt8]) {
@@ -50,20 +65,20 @@ extension LLBDataID: Hashable, CustomDebugStringConvertible {
     }
 
     public init?(string: Substring) {
-        guard string.count >= 3 else {
+        // Test for the kind in the first position.
+        guard let kind = DataIDKind(from: string) else { return nil }
+
+        // Test for "~" in the second position.
+        guard string.count >= 2 else { return nil }
+        let tilde = string.utf8[string.utf8.index(string.startIndex, offsetBy: 1)]
+        guard tilde == UInt8(ascii: "~") else { return nil }
+
+        let b64substring = string.dropFirst(2)
+        guard let completeBytes = [UInt8](base64URL: b64substring, prepending: [kind.rawValue]) else {
             return nil
         }
-        func Bytes(for kind: DataIDKind) -> [UInt8]? {
-            let substr = string[string.index(string.startIndex, offsetBy: 2)...]
-            return [UInt8](base64URL: substr, prepending: [kind.rawValue])
-        }
-        switch string[...string.index(string.startIndex, offsetBy: 1)] {
-        case "0~":
-            guard let bytes = Bytes(for: .directHash) else { return nil }
-            self.bytes = Data(bytes)
-        default:
-            return nil
-        }
+
+        self.bytes = Data(completeBytes)
     }
 }
 

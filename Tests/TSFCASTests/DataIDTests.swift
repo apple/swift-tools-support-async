@@ -24,5 +24,18 @@ class LLBDataIDTests: XCTestCase {
         // Check that invalid JSON is detected.
         XCTAssertThrowsError(try JSONDecoder().decode([LLBDataID].self, from: Data("[\"not hex\"]".utf8)))
     }
+
+    /// Check that DataID can be parsed and re-serialized.
+    func testRoundTrip() {
+        let ids = ["0~YWJjIGRlZg==", "4~YWJjIGRlZg=="]
+        for string in ids {
+            guard let id = LLBDataID(string: string) else {
+                XCTFail("Can't parse LLBDataID")
+                continue
+            }
+            XCTAssertEqual("\(id)", string)
+        }
+    }
+
 }
 

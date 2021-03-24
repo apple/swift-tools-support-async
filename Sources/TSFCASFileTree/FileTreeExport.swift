@@ -46,9 +46,19 @@ public enum LLBExportIOError: Error {
     case uncompressFailed(path: AbsolutePath)
 }
 
+public protocol LLBCASFileTreeExportProgressStats: AnyObject {
+    var bytesDownloaded: Int { get }
+    var bytesExported: Int { get }
+    var bytesToExport: Int { get }
+    var objectsExported: Int { get }
+    var objectsToExport: Int { get }
+    var downloadsInProgressObjects: Int { get }
+    var debugDescription: String { get }
+}
+
 public extension LLBCASFileTree {
 
-    final class ExportProgressStats {
+    final class ExportProgressStats: LLBCASFileTreeExportProgressStats {
         /// Bytes moved over the wire
         internal let bytesDownloaded_ = UnsafeEmbeddedAtomic<Int>(value: 0)
         /// Bytes logically copied over
@@ -108,9 +118,12 @@ public extension LLBCASFileTree {
         stats: ExportProgressStats? = nil,
         _ ctx: Context
     ) -> LLBFuture<Void> {
-        let delegate = CASFileTreeWalkerDelegate(from: db, to: exportPathPrefix, materializer: materializer, storageBatcher: storageBatcher, stats: stats ?? .init())
+        let storageBatcher = storageBatcher ?? ctx.fileTreeExportStorageBatcher
+        let stats = stats ?? .init()
+        let delegate = CASFileTreeWalkerDelegate(from: db, to: exportPathPrefix, materializer: materializer, storageBatcher: storageBatcher, stats: stats)
+
         let walker = ConcurrentHierarchyWalker(group: db.group, delegate: delegate)
-        _ = stats?.objectsToExport_.add(1)
+        _ = stats.objectsToExport_.add(1)
         return walker.walk(.init(id: id, exportPath: exportPathPrefix, kindHint: nil), ctx)
     }
 }

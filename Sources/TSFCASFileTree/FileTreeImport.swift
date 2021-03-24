@@ -16,6 +16,26 @@ import TSCUtility
 
 import TSFCAS
 
+public protocol LLBCASFileTreeImportProgressStats: AnyObject {
+    var toImportFiles: Int { get }
+    var toImportObjects: Int { get }
+    var toImportBytes: Int { get }
+    var checksProgressObjects: Int { get }
+    var checksProgressBytes: Int { get }
+    var checkedObjects: Int { get }
+    var checkedBytes: Int { get }
+    var uploadsProgressObjects: Int { get }
+    var uploadsProgressBytes: Int { get }
+    var uploadedObjects: Int { get }
+    var uploadedBytes: Int { get }
+    var uploadedMetadataBytes: Int { get }
+    var importedObjects: Int { get }
+    var importedBytes: Int { get }
+
+    var phase: LLBCASFileTree.ImportPhase { get }
+
+    var debugDescription: String { get }
+}
 
 public extension LLBCASFileTree {
 
@@ -114,7 +134,7 @@ public extension LLBCASFileTree {
         }
     }
 
-    final class ImportProgressStats: CustomDebugStringConvertible {
+    final class ImportProgressStats: LLBCASFileTreeImportProgressStats, CustomDebugStringConvertible {
 
         /// Number of plain files to import (not directories).
         let toImportFiles_ = UnsafeEmbeddedAtomic<Int>(value: 0)
@@ -253,11 +273,17 @@ public extension LLBCASFileTree {
     //
     // - FIXME: Move this to use TSC's FileSystem. For that, we need to add a
     //          way to get the contents of a symbolic link.
-    static func `import`(path importPath: AbsolutePath, to db: LLBCASDatabase, options optionsTemplate: LLBCASFileTree.ImportOptions = .init(), stats providedStats: LLBCASFileTree.ImportProgressStats? = nil, _ ctx: Context) -> LLBFuture<LLBDataID> {
+    static func `import`(
+        path importPath: AbsolutePath,
+        to db: LLBCASDatabase,
+        options optionsTemplate: LLBCASFileTree.ImportOptions? = nil,
+        stats providedStats: LLBCASFileTree.ImportProgressStats? = nil,
+        _ ctx: Context
+    ) -> LLBFuture<LLBDataID> {
         let stats = providedStats ?? .init()
 
         // Adjust options
-        var mutableOptions = optionsTemplate
+        var mutableOptions = optionsTemplate ?? ctx.fileTreeImportOptions ?? .init()
         switch mutableOptions.wireFormat {
         case .compressed where mutableOptions.compressBufferAllocator == nil:
             mutableOptions.compressBufferAllocator = LLBByteBufferAllocator()

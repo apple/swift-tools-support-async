@@ -11,7 +11,7 @@ import Foundation
 import TSCBasic
 
 
-public protocol LLBFilesystemObjectMaterializer: class {
+public protocol LLBFilesystemObjectMaterializer: AnyObject {
     func materialize(object: LLBFilesystemObject) throws
 }
 

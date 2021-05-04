@@ -43,7 +43,7 @@ public struct LLBCASFeatures: Codable {
 /// A content-addressable database protocol
 ///
 /// THREAD-SAFETY: The database is expected to be thread-safe.
-public protocol LLBCASDatabase: class {
+public protocol LLBCASDatabase: AnyObject {
     var group: LLBFuturesDispatchGroup { get }
 
     /// Get the supported features of this database implementation

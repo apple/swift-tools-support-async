@@ -15,7 +15,7 @@ import TSCUtility
 import TSFCAS
 
 
-protocol RetrieveChildrenProtocol: class {
+protocol RetrieveChildrenProtocol: AnyObject {
     associatedtype Item
 
     /// Get the item's children based on the item.

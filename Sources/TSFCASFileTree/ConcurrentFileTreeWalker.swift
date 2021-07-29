@@ -47,7 +47,7 @@ final class ConcurrentHierarchyWalker<Item> {
     }
 }
 
-class ConcurrentFileTreeWalker: RetrieveChildrenProtocol {
+public class LLBConcurrentFileTreeWalker: RetrieveChildrenProtocol {
     let db: LLBCASDatabase
     let client: LLBCASFSClient
     let filterCallback: (FilterArgument) -> Bool
@@ -163,7 +163,7 @@ class ConcurrentFileTreeWalker: RetrieveChildrenProtocol {
     }
 }
 
-extension ConcurrentFileTreeWalker.FilterArgument {
+extension LLBConcurrentFileTreeWalker.FilterArgument {
     public var debugDescription: String {
         let path = self.path?.pathString ?? "<anonymous file>"
         switch type {

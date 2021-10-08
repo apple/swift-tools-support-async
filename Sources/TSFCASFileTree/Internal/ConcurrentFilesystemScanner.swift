@@ -63,7 +63,7 @@ class ConcurrentFilesystemScanner: Sequence {
     }
 }
 
-/// A single `FilesystemIterator` produces a stream of filesystem objectes.
+/// A single `FilesystemIterator` produces a stream of filesystem objects.
 /// While the single iterator is not thread-safe, multiple iterators
 /// can be instantiated in different threads off the same scanner to scan
 /// the file system concurrently.

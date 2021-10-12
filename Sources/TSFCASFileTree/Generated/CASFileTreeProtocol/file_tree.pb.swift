@@ -231,10 +231,22 @@ public struct LLBFileInfo {
 
   #if !swift(>=4.1)
     public static func ==(lhs: LLBFileInfo.OneOf_Payload, rhs: LLBFileInfo.OneOf_Payload) -> Bool {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch (lhs, rhs) {
-      case (.fixedChunkSize(let l), .fixedChunkSize(let r)): return l == r
-      case (.inlineChildren(let l), .inlineChildren(let r)): return l == r
-      case (.referencedChildrenTree(let l), .referencedChildrenTree(let r)): return l == r
+      case (.fixedChunkSize, .fixedChunkSize): return {
+        guard case .fixedChunkSize(let l) = lhs, case .fixedChunkSize(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.inlineChildren, .inlineChildren): return {
+        guard case .inlineChildren(let l) = lhs, case .inlineChildren(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
+      case (.referencedChildrenTree, .referencedChildrenTree): return {
+        guard case .referencedChildrenTree(let l) = lhs, case .referencedChildrenTree(let r) = rhs else { preconditionFailure() }
+        return l == r
+      }()
       default: return false
       }
     }
@@ -271,10 +283,13 @@ extension LLBDirectoryEntry: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try decoder.decodeSingularStringField(value: &self.name)
-      case 2: try decoder.decodeSingularEnumField(value: &self.type)
-      case 3: try decoder.decodeSingularUInt64Field(value: &self.size)
+      case 1: try { try decoder.decodeSingularStringField(value: &self.name) }()
+      case 2: try { try decoder.decodeSingularEnumField(value: &self.type) }()
+      case 3: try { try decoder.decodeSingularUInt64Field(value: &self.size) }()
       default: break
       }
     }
@@ -310,8 +325,11 @@ extension LLBDirectoryEntries: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try decoder.decodeRepeatedMessageField(value: &self.entries)
+      case 1: try { try decoder.decodeRepeatedMessageField(value: &self.entries) }()
       default: break
       }
     }
@@ -345,29 +363,43 @@ extension LLBFileInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementati
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try decoder.decodeSingularEnumField(value: &self.type)
-      case 2: try decoder.decodeSingularUInt64Field(value: &self.size)
-      case 3: try decoder.decodeSingularUInt32Field(value: &self.posixPermissions)
-      case 4: try decoder.decodeSingularEnumField(value: &self.compression)
-      case 11:
-        if self.payload != nil {try decoder.handleConflictingOneOf()}
+      case 1: try { try decoder.decodeSingularEnumField(value: &self.type) }()
+      case 2: try { try decoder.decodeSingularUInt64Field(value: &self.size) }()
+      case 3: try { try decoder.decodeSingularUInt32Field(value: &self.posixPermissions) }()
+      case 4: try { try decoder.decodeSingularEnumField(value: &self.compression) }()
+      case 11: try {
         var v: UInt64?
         try decoder.decodeSingularUInt64Field(value: &v)
-        if let v = v {self.payload = .fixedChunkSize(v)}
-      case 12:
+        if let v = v {
+          if self.payload != nil {try decoder.handleConflictingOneOf()}
+          self.payload = .fixedChunkSize(v)
+        }
+      }()
+      case 12: try {
         var v: LLBDirectoryEntries?
+        var hadOneofValue = false
         if let current = self.payload {
-          try decoder.handleConflictingOneOf()
+          hadOneofValue = true
           if case .inlineChildren(let m) = current {v = m}
         }
         try decoder.decodeSingularMessageField(value: &v)
-        if let v = v {self.payload = .inlineChildren(v)}
-      case 13:
-        if self.payload != nil {try decoder.handleConflictingOneOf()}
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .inlineChildren(v)
+        }
+      }()
+      case 13: try {
         var v: UInt32?
         try decoder.decodeSingularUInt32Field(value: &v)
-        if let v = v {self.payload = .referencedChildrenTree(v)}
+        if let v = v {
+          if self.payload != nil {try decoder.handleConflictingOneOf()}
+          self.payload = .referencedChildrenTree(v)
+        }
+      }()
       default: break
       }
     }
@@ -386,13 +418,22 @@ extension LLBFileInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementati
     if self.compression != .none {
       try visitor.visitSingularEnumField(value: self.compression, fieldNumber: 4)
     }
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every case branch when no optimizations are
+    // enabled. https://github.com/apple/swift-protobuf/issues/1034
     switch self.payload {
-    case .fixedChunkSize(let v)?:
+    case .fixedChunkSize?: try {
+      guard case .fixedChunkSize(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularUInt64Field(value: v, fieldNumber: 11)
-    case .inlineChildren(let v)?:
+    }()
+    case .inlineChildren?: try {
+      guard case .inlineChildren(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 12)
-    case .referencedChildrenTree(let v)?:
+    }()
+    case .referencedChildrenTree?: try {
+      guard case .referencedChildrenTree(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularUInt32Field(value: v, fieldNumber: 13)
+    }()
     case nil: break
     }
     try unknownFields.traverse(visitor: &visitor)

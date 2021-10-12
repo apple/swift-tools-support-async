@@ -37,7 +37,7 @@ public struct LLBPBCASObject {
 
   public var refs: [LLBDataID] = []
 
-  public var data: Data = SwiftProtobuf.Internal.emptyData
+  public var data: Data = Data()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -55,9 +55,12 @@ extension LLBPBCASObject: SwiftProtobuf.Message, SwiftProtobuf._MessageImplement
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try decoder.decodeRepeatedMessageField(value: &self.refs)
-      case 2: try decoder.decodeSingularBytesField(value: &self.data)
+      case 1: try { try decoder.decodeRepeatedMessageField(value: &self.refs) }()
+      case 2: try { try decoder.decodeSingularBytesField(value: &self.data) }()
       default: break
       }
     }

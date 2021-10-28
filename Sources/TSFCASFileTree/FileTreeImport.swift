@@ -1,6 +1,6 @@
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -75,6 +75,20 @@ public extension LLBCASFileTree {
         }
     }
 
+    struct PreservePosixDetails {
+        /// Preserve POSIX file permissions.
+        public var preservePosixMode = false
+
+        /// Preserve POSIX user and group information.
+        public var preservePosixOwnership = false
+
+        fileprivate var preservationEnabled: Bool {
+            preservePosixMode || preservePosixOwnership
+        }
+
+        public init() {}
+    }
+
     /// Modifiers for the default behavior of the `import` call.
     struct ImportOptions {
         /// The serialization format for persisting the CASTrees.
@@ -102,6 +116,9 @@ public extension LLBCASFileTree {
         /// Necessary if absolutely have to import something that has
         /// a couple of files changing all the time (logs?).
         public var relaxConsistencyChecks = false
+
+        /// Preserve file permissions and ownership.
+        public var preservePosixDetails = PreservePosixDetails()
 
         /// A function to check whether path name matches the
         /// expectations before importing. If the directory name does not
@@ -496,16 +513,16 @@ private final class CASTreeImport {
         }.flatMap { nextStepFutures -> LLBFuture<[NextStep]> in
             self.set(phase: .CheckIfUploaded)
             return self.recursivelyPerformSteps(currentPhase: .CheckIfUploaded, currentPhaseSteps: nextStepFutures)
-        }.map { nextSteps -> (directoryPaths: [AbsolutePath], completeFiles: [AbsolutePath: SingleFileInfo]) in
+        }.map { nextSteps -> (directoryPaths: [(AbsolutePath, LLBPosixFileDetails?)], completeFiles: [AbsolutePath: SingleFileInfo]) in
             self.set(phase: .UploadingDirs)
             var completeFiles = [AbsolutePath: SingleFileInfo]()
-            var directoryPaths = [AbsolutePath]()
+            var directoryPaths = [(AbsolutePath, LLBPosixFileDetails?)]()
             for step in nextSteps {
                 switch step {
                 case .skipped, .partialFileChunk:
                     continue
-                case .gotDirectory(let path):
-                    directoryPaths.append(path)
+                case let .gotDirectory(path, posixDetails):
+                    directoryPaths.append((path, posixDetails))
                 case .singleFile(let info):
                     completeFiles[info.path] = info
                 case .execute, .wait:
@@ -516,7 +533,7 @@ private final class CASTreeImport {
             return (directoryPaths, completeFiles)
         }.flatMap { args -> LLBFuture<LLBDataID> in
             // Account for the importPath which we add here last.
-            let directoryPaths = args.directoryPaths.sorted().reversed()
+            let directoryPaths = args.directoryPaths.sorted(by: { $1.0 < $0.0 })
             let completeFiles = args.completeFiles
 
             /// If imported a single file, return it.
@@ -532,7 +549,8 @@ private final class CASTreeImport {
             // Now we have to add all the directories; we do so serially and in
             // reverse order of depth, so we can guarantee the children are resolved
             // when they need to be.
-            let dirFutures: [LLBFuture<Void>] = directoryPaths.map { path in
+            let dirFutures: [LLBFuture<Void>] = directoryPaths.map { arguments in
+              let (path, pathPosixDetails) = arguments
               let dirLoop = self._db.group.next()
               let directoryPromise: LLBPromise<(LLBDataID, LLBDirectoryEntry)?>
               directoryPromise = dirLoop.makePromise()
@@ -563,6 +581,7 @@ private final class CASTreeImport {
                         dirEntry.name = filename
                         dirEntry.type = info.type
                         dirEntry.size = info.size
+                        dirEntry.update(posixDetails: info.posixDetails, options: self.options)
                         return dirLoop.makeSucceededFuture((info.id, dirEntry))
                     } else if let dirInfoFuture = udpLock.withLock({uploadedDirectoryPaths_[subpath]}) {
                         return dirInfoFuture.map { idInfo in
@@ -571,6 +590,7 @@ private final class CASTreeImport {
                             dirEntry.name = filename
                             dirEntry.type = info.type
                             dirEntry.size = info.size
+                            dirEntry.update(posixDetails: info.posixDetails, options: self.options)
                             return (id, dirEntry)
                         }
                     } else {
@@ -589,6 +609,9 @@ private final class CASTreeImport {
                             dirEntry.name = path.pathString
                             dirEntry.type = .directory
                             dirEntry.size = aggregateSize
+                            if let pd = pathPosixDetails {
+                                dirEntry.update(posixDetails: pd, options: self.options)
+                            }
                             return (id, dirEntry)
                         }
                     } catch {
@@ -690,6 +713,7 @@ private final class CASTreeImport {
         let id: LLBDataID
         let type: LLBFileType
         let size: UInt64
+        let posixDetails: LLBPosixFileDetails
     }
 
     struct AnnotatedSegment {
@@ -735,7 +759,7 @@ private final class CASTreeImport {
     // Final step: information about the file.
     case singleFile(SingleFileInfo)
     // Final step: information about the directory.
-    case gotDirectory(path: AbsolutePath)
+    case gotDirectory(path: AbsolutePath, posixDetails: LLBPosixFileDetails?)
     // Intermediate step: not earlier than in the given phase.
     case execute(in: LLBCASFileTree.ImportPhase, run: () -> LLBFuture<NextStep>)
     // This future has to be picked up in the given phase.
@@ -823,8 +847,16 @@ private final class CASTreeImport {
         let type: LLBFileType
         let allSegmentsUncompressedDataSize: Int
         enum ObjectToImport {
-        case link(target: LLBFastData)
-        case file(file: FileSegmenter)
+            case link(target: LLBFastData)
+            case file(file: FileSegmenter, posixDetails: LLBPosixFileDetails)
+            var posixDetails: LLBPosixFileDetails {
+                switch self {
+                case .link:
+                    return LLBPosixFileDetails()
+                case .file(_, let posixDetails):
+                    return posixDetails
+                }
+            }
         }
         let importObject: ObjectToImport
 
@@ -847,8 +879,22 @@ private final class CASTreeImport {
             importObject = .link(target: target)
             segmentDescriptors = [SegmentDescriptor(isCompressed: false, uncompressedSize: target.count, id: _db.identify(refs: [], data: target.toByteBuffer(), ctx))]
         case .DIR:
+            let posixDetails: LLBPosixFileDetails?
+
+            // Read the permissions and ownership information, if requested.
+            if options.preservePosixDetails.preservationEnabled {
+                var sb = stat()
+                if lstat(path.pathString, &sb) == 0, (sb.st_mode & S_IFMT) == S_IFDIR {
+                    posixDetails = LLBPosixFileDetails(from: sb)
+                } else {
+                    posixDetails = nil
+                }
+            } else {
+                posixDetails = nil
+            }
+
             // If this is a directory, defer its processing.
-            return .gotDirectory(path: path)
+            return .gotDirectory(path: path, posixDetails: posixDetails)
         case .REG:
             let file: FileSegmenter
             do {
@@ -861,7 +907,7 @@ private final class CASTreeImport {
             }
 
             type = (file.statInfo.st_mode & 0o111 == 0) ? .plainFile : .executable
-            importObject = .file(file: file)
+            importObject = .file(file: file, posixDetails: LLBPosixFileDetails(from: file.statInfo))
             segmentDescriptors = try describeAllSegments(of: file, ctx)
             allSegmentsUncompressedDataSize = segmentDescriptors.reduce(0) {
                 $0 + $1.uncompressedSize
@@ -901,7 +947,7 @@ private final class CASTreeImport {
 
               func encodeNextStep(for id: LLBDataID) -> NextStep {
                 if isSingleChunk {
-                    return .singleFile(SingleFileInfo(path: path, id: id, type: type, size: UInt64(clamping: segm.uncompressedSize)))
+                    return .singleFile(SingleFileInfo(path: path, id: id, type: type, size: UInt64(clamping: segm.uncompressedSize), posixDetails: importObject.posixDetails))
                 } else {
                     return .partialFileChunk(id)
                 }
@@ -930,6 +976,7 @@ private final class CASTreeImport {
                 // file and doesn't have any other metadata (e.g. permissions).
                 if isSingleChunk {
                     fileInfo.type = type
+                    fileInfo.update(posixDetails: importObject.posixDetails, options: self.options)
                 } else {
                     fileInfo.type = .plainFile
                 }
@@ -970,7 +1017,7 @@ private final class CASTreeImport {
                         switch importObject {
                         case let .link(target):
                             data = target
-                        case let .file(file):
+                        case let .file(file, _):
                             data = try self.prepareSingleSegment(of: file, segmentNumber: segmentOffset, useCompression: segm.isCompressed)
                         }
 
@@ -1029,6 +1076,11 @@ private final class CASTreeImport {
                             return []
                         }
                     }
+                } else if error is FileSystemError {
+                    if self.options.skipUnreadable {
+                        // Not a consistency error, hide it.
+                        return []
+                    }
                 }
 
                 throw error
@@ -1053,11 +1105,13 @@ private final class CASTreeImport {
                 // The top is not compressed when chunks are present.
                 fileInfo.compression = .none
                 fileInfo.fixedChunkSize = UInt64(chunkIds.count > 1 ? self.options.fileChunkSize : allSegmentsUncompressedDataSize)
+                let posixDetails = importObject.posixDetails
+                fileInfo.update(posixDetails: posixDetails, options: self.options)
                 do {
                     let fileInfoBytes = try fileInfo.toBytes()
                     return self.execute(on: self.netQueue, size: fileInfoBytes.readableBytes, default: .skipped) {
                         self.dbPut(refs: chunkIds, data: fileInfoBytes, importSize: nil, ctx).map { id in
-                            return .singleFile(SingleFileInfo(path: path, id: id, type: type, size: UInt64(clamping: allSegmentsUncompressedDataSize)))
+                            return .singleFile(SingleFileInfo(path: path, id: id, type: type, size: UInt64(clamping: allSegmentsUncompressedDataSize), posixDetails: posixDetails))
                         }
                     }
                 } catch {
@@ -1223,4 +1277,51 @@ extension AbsolutePath {
             return false
         }
     }
+}
+
+extension LLBPosixFileDetails {
+    /// Return details only if details are not entirely predictable
+    /// from file type and other context.
+    func normalized(expectedMode: mode_t, options: LLBCASFileTree.ImportOptions?) -> LLBPosixFileDetails? {
+
+        var details = self
+        if options?.preservePosixDetails.preservePosixMode == false {
+            details.mode = 0
+        } else if self.mode == expectedMode {
+            // Mode is predictable from context.
+            details.mode = 0
+        }
+
+        if options?.preservePosixDetails.preservePosixOwnership == false {
+            details.owner = 0
+            details.group = 0
+        }
+
+        if details == LLBPosixFileDetails() {
+            return nil
+        } else {
+            return details
+        }
+    }
+
+}
+
+extension LLBFileInfo {
+
+    mutating func update(posixDetails: LLBPosixFileDetails, options: LLBCASFileTree.ImportOptions?) {
+        if let details = posixDetails.normalized(expectedMode: type.expectedPosixMode, options: options) {
+            self.posixDetails = details
+        }
+    }
+
+}
+
+extension LLBDirectoryEntry {
+
+    mutating func update(posixDetails: LLBPosixFileDetails, options: LLBCASFileTree.ImportOptions?) {
+        if let details = posixDetails.normalized(expectedMode: type.expectedPosixMode, options: options) {
+            self.posixDetails = details
+        }
+    }
+
 }

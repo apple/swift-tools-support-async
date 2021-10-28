@@ -1,6 +1,6 @@
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -19,7 +19,7 @@ public protocol LLBFilesystemObjectMaterializer: AnyObject {
 public struct LLBFilesystemObject {
     public let path: AbsolutePath
     public let content: Content
-    public let permissions: mode_t?
+    public let posixDetails: LLBPosixFileDetails?
 
     public enum Content {
     /// Not an actual filesystem content, a placeholder.
@@ -39,13 +39,13 @@ public struct LLBFilesystemObject {
     public init() {
         self.path = AbsolutePath("/")
         self.content = Content.ignore
-        self.permissions = nil
+        self.posixDetails = nil
     }
 
-    public init(_ path: AbsolutePath, _ content: Content, permissions: mode_t? = nil) {
+    public init(_ path: AbsolutePath, _ content: Content, posixDetails: LLBPosixFileDetails? = nil) {
         self.path = path
         self.content = content
-        self.permissions = permissions
+        self.posixDetails = posixDetails
     }
 }
 
@@ -53,7 +53,7 @@ public struct LLBFilesystemObject {
 /// Expose accounting stats.
 extension LLBFilesystemObject {
 
-    // Number of bytes represented by this FilesystemObject.
+    // Number of bytes represented by this LLBFilesystemObject.
     var accountedDataSize: Int {
         switch self.content {
         case .ignore, .empty:
@@ -69,7 +69,7 @@ extension LLBFilesystemObject {
         }
     }
 
-    // Number of objects represented by this FilesystemObject.
+    // Number of objects represented by this LLBFilesystemObject.
     var accountedObjects: Int {
         switch content {
         case .ignore, .partial:
@@ -81,10 +81,37 @@ extension LLBFilesystemObject {
 
 }
 
+extension LLBPosixFileDetails {
+    init(from info: stat) {
+        self = LLBPosixFileDetails()
+        mode = UInt32(exactly: info.st_mode & 0o7777) ?? 0
+        owner = UInt32(exactly: info.st_uid) ?? 0
+        group = UInt32(exactly: info.st_gid) ?? 0
+    }
+
+    init(from info: LLBFileInfo) {
+        var posixDetails = info.posixDetails
+        posixDetails.mode &= 0o7777
+        self = posixDetails
+    }
+
+    init(from info: LLBDirectoryEntry) {
+        var posixDetails = info.posixDetails
+        posixDetails.mode &= 0o7777
+        self = posixDetails
+    }
+}
+
 /// A way to put objects to the real filesystem.
 public final class LLBRealFilesystemMaterializer: LLBFilesystemObjectMaterializer {
 
-    public init() { }
+    private let userIsSuperuser: Bool
+    private let preserve: LLBCASFileTree.PreservePosixDetails
+
+    public init(preservePosixDetails: LLBCASFileTree.PreservePosixDetails = .init()) {
+        self.userIsSuperuser = geteuid() == 0
+        self.preserve = preservePosixDetails
+    }
 
     public func materialize(object: LLBFilesystemObject) throws {
         let path = object.path
@@ -96,9 +123,14 @@ public final class LLBRealFilesystemMaterializer: LLBFilesystemObjectMaterialize
         case let .empty(size, executable):
 
             // Be mindful and rely on `umask` when setting permissions.
-            let perms = object.permissions ?? (executable ? 0o777 : 0o666)
+            let openMode: mode_t
+            if let pd = object.posixDetails, let mode = mode_t(exactly: pd.mode), mode != 0 {
+                openMode = mode
+            } else {
+                openMode = (executable ? 0o755 : 0o644)
+            }
 
-            let fd = open(path.pathString, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, perms)
+            let fd = open(path.pathString, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, openMode)
             guard fd != -1 else {
                 throw LLBExportIOError.unableSyscall(path: path, call: "open", error: String(cString: strerror(errno)))
             }
@@ -108,14 +140,7 @@ public final class LLBRealFilesystemMaterializer: LLBFilesystemObjectMaterialize
                 throw LLBExportIOError.unableSyscall(path: path, call: "ftruncate", error: String(cString: strerror(errno)))
             }
 
-            // If permissions are explicitly specified, `umask` could have
-            // broken the desired permissions.
-            // Fix it here before we start writing (exposing) the data.
-            if let perms = object.permissions {
-                guard fchmod(fd, perms) != -1 else {
-                    throw LLBExportIOError.unableSyscall(path: object.path, call: "fchmod", error: String(cString: strerror(errno)))
-                }
-            }
+            try updateFileDetails(object: object, fd: fd)
 
         case let .partial(data, fileOffset):
             // The file should exist by now. Insert data into it.
@@ -131,22 +156,20 @@ public final class LLBRealFilesystemMaterializer: LLBFilesystemObjectMaterialize
         case let .file(data, executable):
 
             // Be mindful and rely on `umask` when setting permissions.
-            let perms = object.permissions ?? (executable ? 0o777 : 0o666)
+            let openMode: mode_t
+            if let pd = object.posixDetails, let mode = mode_t(exactly: pd.mode), mode != 0 {
+                openMode = mode
+            } else {
+                openMode = (executable ? 0o755 : 0o644)
+            }
 
-            let fd = open(path.pathString, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, perms)
+            let fd = open(path.pathString, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, openMode)
             guard fd != -1 else {
                 throw LLBExportIOError.unableSyscall(path: path, call: "open", error: String(cString: strerror(errno)))
             }
             defer { close(fd) }
 
-            // If permissions are explicitly specified, `umask` could have
-            // broken the desired permissions.
-            // Fix it here before we start writing (exposing) the data.
-            if let perms = object.permissions {
-                guard fchmod(fd, perms) != -1 else {
-                    throw LLBExportIOError.unableSyscall(path: object.path, call: "fchmod", error: String(cString: strerror(errno)))
-                }
-            }
+            try updateFileDetails(object: object, fd: fd)
 
             try writeFileData(fd: fd, data: data, startOffset: 0, debugPath: path)
 
@@ -164,7 +187,56 @@ public final class LLBRealFilesystemMaterializer: LLBFilesystemObjectMaterialize
         case .directory:
             // Create the directory.
             try TSCBasic.localFileSystem.createDirectory(path)
+
+            guard object.posixDetails?.normalized(expectedMode: 0o755, options: nil) != nil else {
+                break
+            }
+
+            if let dir = opendir(path.pathString) {
+                defer { closedir(dir) }
+                try updateFileDetails(object: object, fd: dirfd(dir))
+            } else {
+                throw LLBExportIOError.unableSyscall(path: object.path, call: "fdopen", error: String(cString: strerror(errno)))
+            }
         }
+    }
+
+    private func updateFileDetails(object: LLBFilesystemObject, fd: CInt) throws {
+
+        let expectedMode: mode_t
+        switch object.content {
+        case .ignore, .symlink, .partial:
+            return
+        case .empty(_, let executable),
+             .file(_, let executable):
+            expectedMode = executable ? 0o755 : 0o644
+        case .directory:
+            expectedMode = 0o755
+        }
+
+        guard let details = object.posixDetails?.normalized(expectedMode: expectedMode, options: nil) else {
+            return
+        }
+
+        if userIsSuperuser, preserve.preservePosixOwnership {
+            let owner = uid_t(exactly: details.owner) ?? 0
+            let group = gid_t(exactly: details.group) ?? 0
+            if owner != 0 || group != 0 {
+                guard fchown(fd, owner, group) != -1 else {
+                    throw LLBExportIOError.unableSyscall(path: object.path, call: "fchown", error: String(cString: strerror(errno)))
+                }
+            }
+        }
+
+        // If permissions are explicitly specified, `umask` could have
+        // broken the desired permissions.
+        // Fix it here before we start writing (exposing) the data.
+        if preserve.preservePosixMode, let mode = mode_t(exactly: details.mode), mode != 0 {
+            guard fchmod(fd, mode & 0o7777) != -1 else {
+                throw LLBExportIOError.unableSyscall(path: object.path, call: "fchmod", error: String(cString: strerror(errno)))
+            }
+        }
+
     }
 
     /// Can't use Basic's file utilities without data conversion.

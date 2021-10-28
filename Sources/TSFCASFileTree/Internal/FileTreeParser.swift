@@ -1,6 +1,6 @@
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -28,7 +28,7 @@ struct CASFileTreeParser {
         case nil:
             do {
                 let info = try LLBFileInfo.deserialize(from: casObject.data)
-                return try parseCASObject(id: id, path: path, casObject: casObject, kind: .init(type: info.type))
+                return try parseCASObject(id: id, path: path, casObject: casObject, kind: .init(type: info.type, posixDetails: .init(from: info)))
             } catch {
                 throw LLBCASFileTreeFormatError.formatError(reason: "\(id): \(casObject.data.readableBytes) bytes, \(casObject.refs.count) refs, not exportable")
             }
@@ -65,7 +65,7 @@ struct CASFileTreeParser {
             }
 
             guard let offset = kind.saveOffset else {
-                return (LLBFilesystemObject(path, .file(data: uncompressed, executable: exe), permissions: kind.permissions), [])
+                return (LLBFilesystemObject(path, .file(data: uncompressed, executable: exe), posixDetails: kind.posixDetails), [])
             }
 
             return (LLBFilesystemObject(path, .partial(data: uncompressed, offset: offset)), [])
@@ -81,7 +81,6 @@ struct CASFileTreeParser {
 
         switch info.payload {
         case let .fixedChunkSize(chunkSize)?:
-            let permissions = info.posixPermissions == 0 ? nil : mode_t(clamping: info.posixPermissions)
             let compressed: Bool
             switch info.compression {
             case .none:
@@ -91,7 +90,7 @@ struct CASFileTreeParser {
             }
 
             guard casObject.refs.count > 1 else {
-                let download = AnnotatedCASTreeChunk(casObject.refs[0], path, kind: .init(type: info.type, permissions: permissions, compressed: compressed, saveOffset: kind.saveOffset, overestimatedSize: max(info.size, chunkSize)))
+                let download = AnnotatedCASTreeChunk(casObject.refs[0], path, kind: .init(type: info.type, posixDetails: LLBPosixFileDetails(from: info), compressed: compressed, saveOffset: kind.saveOffset, overestimatedSize: max(info.size, chunkSize)))
                 return (LLBFilesystemObject(), [download])
             }
 
@@ -101,7 +100,7 @@ struct CASFileTreeParser {
             let atLeastSize: UInt64 = chunkSize * UInt64(clamping: casObject.refs.count - 1)
             let atMostSize: UInt64 = chunkSize * UInt64(casObject.refs.count)
 
-            let prepareEmptyFile = LLBFilesystemObject(path, .empty(size: max(info.size, atLeastSize), executable: exe), permissions: permissions)
+            let prepareEmptyFile = LLBFilesystemObject(path, .empty(size: max(info.size, atLeastSize), executable: exe), posixDetails: LLBPosixFileDetails(from: info))
 
             let chunks: [AnnotatedCASTreeChunk]
             let eachChunkType = info.type == .executable ? .plainFile : info.type
@@ -113,14 +112,14 @@ struct CASFileTreeParser {
                     throw LLBCASFileTreeFormatError.fileTooLarge(path: path)
                 }
                 let overestimatedChunkSize = offset + 1 == casObject.refs.count ? max(info.size, atMostSize) - saveOffset : chunkSize
-                let kind = AnnotatedCASTreeChunk.ItemKind(type: eachChunkType, compressed: compressed, saveOffset: saveOffset, overestimatedSize: overestimatedChunkSize)
+                let kind = AnnotatedCASTreeChunk.ItemKind(type: eachChunkType, posixDetails: nil, compressed: compressed, saveOffset: saveOffset, overestimatedSize: overestimatedChunkSize)
                 return AnnotatedCASTreeChunk(id, path, kind: kind)
             }
             return (prepareEmptyFile, chunks)
 
         // Detect protocol enhancements at compile time.
         case .inlineChildren?, .referencedChildrenTree?:
-            throw LLBCASFileTreeFormatError.formatError(reason: "\(id): bad format \(String(describing: info.payload))")
+            throw LLBCASFileTreeFormatError.formatError(reason: "\(id): bad format")
         case nil:
             throw LLBCASFileTreeFormatError.formatError(reason: "\(id): unrecognized format")
         }
@@ -129,6 +128,7 @@ struct CASFileTreeParser {
 
     func parseDirectory(id: LLBDataID, path: AbsolutePath, casObject: LLBCASObject) throws -> (LLBFilesystemObject, [AnnotatedCASTreeChunk]) {
 
+        let posixDetails: LLBPosixFileDetails
         let dirContents: [LLBDirectoryEntry]
         let dirInfo = try LLBFileInfo.deserialize(from: casObject.data)
         guard dirInfo.type == .directory else {
@@ -138,12 +138,13 @@ struct CASFileTreeParser {
             throw LLBCASFileTreeFormatError.formatError(reason: "\(id): directory doesn't specify children")
         }
         dirContents = children.entries
+        posixDetails = LLBPosixFileDetails(from: dirInfo)
 
         if casObject.refs.count < dirContents.count {
             throw LLBCASFileTreeFormatError.unexpectedDirectoryData(id)
         }
 
-        let fsObject = LLBFilesystemObject(path, .directory, permissions: nil)
+        let fsObject = LLBFilesystemObject(path, .directory, posixDetails: posixDetails)
 
         let others: [AnnotatedCASTreeChunk]
         others = try zip(casObject.refs, dirContents).map { args in
@@ -152,7 +153,7 @@ struct CASFileTreeParser {
                 throw LLBCASFileTreeFormatError.formatError(reason: "\(String(reflecting: info.name)): unexpected directory entry")
             }
 
-            let kind = AnnotatedCASTreeChunk.ItemKind(type: info.type, overestimatedSize: info.size)
+            let kind = AnnotatedCASTreeChunk.ItemKind(type: info.type, posixDetails: LLBPosixFileDetails(from: info), overestimatedSize: info.size)
             return AnnotatedCASTreeChunk(id, path.appending(component: info.name), kind: kind)
         }
         return (fsObject, others)
@@ -168,8 +169,7 @@ struct CASFileTreeParser {
         guard !object.refs.isEmpty else {
             // This is an old-style, compact representation blob.
             return AnnotatedCASTreeChunk(id, .root, kind:
-                .init(type: .plainFile,
-                        overestimatedSize: UInt64(object.size)))
+                .init(type: .plainFile, posixDetails: nil, overestimatedSize: UInt64(object.size)))
         }
 
         let (fsObject, parts) = try Self(for: .root, allocator: nil)
@@ -180,21 +180,23 @@ struct CASFileTreeParser {
         case let .empty(size, executable):
             return AnnotatedCASTreeChunk(id, .root, kind:
                 .init(type: executable ? .executable: .plainFile,
-                        overestimatedSize: size))
+                        posixDetails: fsObject.posixDetails, overestimatedSize: size))
         case let .file(data, executable):
             return AnnotatedCASTreeChunk(id, .root, kind:
                 .init(type: executable ? .executable: .plainFile,
-                        overestimatedSize: UInt64(data.count)))
+                        posixDetails: fsObject.posixDetails, overestimatedSize: UInt64(data.count)))
         case .partial:
             throw LLBCASFileTreeFormatError.formatError(reason: "\(id): Partial data at top level")
         case let .symlink(target):
             return AnnotatedCASTreeChunk(id, .root, kind:
                 .init(type: .symlink,
+                        posixDetails: fsObject.posixDetails,
                         overestimatedSize: UInt64(target.count)))
         case .directory:
             return AnnotatedCASTreeChunk(id, .root, kind:
                 .init(type: .directory,
-                      overestimatedSize: 0))
+                        posixDetails: fsObject.posixDetails,
+                        overestimatedSize: 0))
         }
     }
 }
@@ -214,17 +216,17 @@ struct AnnotatedCASTreeChunk {
 
     public struct ItemKind {
         public let type: LLBFileType
-        public let permissions: mode_t?
+        public let posixDetails: LLBPosixFileDetails
         let compressed: Bool
         let saveOffset: UInt64?
         public let overestimatedSize: UInt64
 
-        public init(type: LLBFileType, permissions: mode_t? = nil, compressed: Bool = false, saveOffset: UInt64? = nil, overestimatedSize: UInt64 = 0) {
+        public init(type: LLBFileType, posixDetails: LLBPosixFileDetails?, compressed: Bool = false, saveOffset: UInt64? = nil, overestimatedSize: UInt64 = 0) {
             self.type = type
-            self.permissions = permissions
             self.compressed = compressed
             self.saveOffset = saveOffset
             self.overestimatedSize = overestimatedSize
+            self.posixDetails = posixDetails ?? LLBPosixFileDetails()
         }
     }
 
@@ -234,3 +236,4 @@ struct AnnotatedCASTreeChunk {
         self.kind = kind
     }
 }
+

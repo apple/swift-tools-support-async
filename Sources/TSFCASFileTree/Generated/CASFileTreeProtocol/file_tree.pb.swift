@@ -122,6 +122,28 @@ extension LLBFileDataCompressionMethod: CaseIterable {
 
 #endif  // swift(>=4.2)
 
+public struct LLBPosixFileDetails {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  //// The POSIX permissions (&0o7777). Masking is useful when storing entries
+  //// with very restricted permissions (such as (perm & 0o0007) == 0).
+  public var mode: UInt32 = 0
+
+  //// Owner user identifier.
+  //// Semantically, absent owner == 0x0 ~= current uid.
+  public var owner: UInt32 = 0
+
+  //// Owner group identifier.
+  //// Semantically, absent owner == 0x0 ~= current gid.
+  public var group: UInt32 = 0
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
 public struct LLBDirectoryEntry {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -136,9 +158,22 @@ public struct LLBDirectoryEntry {
   //// The (aggregate) size of the directory entry.
   public var size: UInt64 = 0
 
+  //// Mode and permissions. _Can_ optionally be present in the
+  //// directory entry because the file can be just a direct blob reference.
+  public var posixDetails: LLBPosixFileDetails {
+    get {return _posixDetails ?? LLBPosixFileDetails()}
+    set {_posixDetails = newValue}
+  }
+  /// Returns true if `posixDetails` has been explicitly set.
+  public var hasPosixDetails: Bool {return self._posixDetails != nil}
+  /// Clears the value of `posixDetails`. Subsequent reads from it will return its default value.
+  public mutating func clearPosixDetails() {self._posixDetails = nil}
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
+
+  fileprivate var _posixDetails: LLBPosixFileDetails? = nil
 }
 
 //// The list of file names and associated information, of a directory.
@@ -169,6 +204,7 @@ public struct LLBFileInfo {
   //// is unspecified.
   public var size: UInt64 = 0
 
+  //// OBSOLETE. Use posixDetails.
   //// The POSIX permissions (&0o777). Useful when storing entries
   //// with very restricted permissions (such as (perm & 0o007) == 0).
   public var posixPermissions: UInt32 = 0
@@ -177,6 +213,16 @@ public struct LLBFileInfo {
   ////  * Compression ought not to be applied to symlinks.
   ////  * Compression is applied after chunking, to retain seekability.
   public var compression: LLBFileDataCompressionMethod = .none
+
+  //// Permission info useful for POSIX filesystems.
+  public var posixDetails: LLBPosixFileDetails {
+    get {return _posixDetails ?? LLBPosixFileDetails()}
+    set {_posixDetails = newValue}
+  }
+  /// Returns true if `posixDetails` has been explicitly set.
+  public var hasPosixDetails: Bool {return self._posixDetails != nil}
+  /// Clears the value of `posixDetails`. Subsequent reads from it will return its default value.
+  public mutating func clearPosixDetails() {self._posixDetails = nil}
 
   public var payload: LLBFileInfo.OneOf_Payload? = nil
 
@@ -254,6 +300,8 @@ public struct LLBFileInfo {
   }
 
   public init() {}
+
+  fileprivate var _posixDetails: LLBPosixFileDetails? = nil
 }
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
@@ -273,12 +321,57 @@ extension LLBFileDataCompressionMethod: SwiftProtobuf._ProtoNameProviding {
   ]
 }
 
+extension LLBPosixFileDetails: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = "LLBPosixFileDetails"
+  public static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "mode"),
+    2: .same(proto: "owner"),
+    3: .same(proto: "group"),
+  ]
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularUInt32Field(value: &self.mode) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.owner) }()
+      case 3: try { try decoder.decodeSingularUInt32Field(value: &self.group) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.mode != 0 {
+      try visitor.visitSingularUInt32Field(value: self.mode, fieldNumber: 1)
+    }
+    if self.owner != 0 {
+      try visitor.visitSingularUInt32Field(value: self.owner, fieldNumber: 2)
+    }
+    if self.group != 0 {
+      try visitor.visitSingularUInt32Field(value: self.group, fieldNumber: 3)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: LLBPosixFileDetails, rhs: LLBPosixFileDetails) -> Bool {
+    if lhs.mode != rhs.mode {return false}
+    if lhs.owner != rhs.owner {return false}
+    if lhs.group != rhs.group {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
 extension LLBDirectoryEntry: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = "LLBDirectoryEntry"
   public static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "name"),
     2: .same(proto: "type"),
     3: .same(proto: "size"),
+    4: .same(proto: "posixDetails"),
   ]
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -290,6 +383,7 @@ extension LLBDirectoryEntry: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
       case 1: try { try decoder.decodeSingularStringField(value: &self.name) }()
       case 2: try { try decoder.decodeSingularEnumField(value: &self.type) }()
       case 3: try { try decoder.decodeSingularUInt64Field(value: &self.size) }()
+      case 4: try { try decoder.decodeSingularMessageField(value: &self._posixDetails) }()
       default: break
       }
     }
@@ -305,6 +399,9 @@ extension LLBDirectoryEntry: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if self.size != 0 {
       try visitor.visitSingularUInt64Field(value: self.size, fieldNumber: 3)
     }
+    if let v = self._posixDetails {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -312,6 +409,7 @@ extension LLBDirectoryEntry: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     if lhs.name != rhs.name {return false}
     if lhs.type != rhs.type {return false}
     if lhs.size != rhs.size {return false}
+    if lhs._posixDetails != rhs._posixDetails {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -356,6 +454,7 @@ extension LLBFileInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementati
     2: .same(proto: "size"),
     3: .same(proto: "posixPermissions"),
     4: .same(proto: "compression"),
+    5: .same(proto: "posixDetails"),
     11: .same(proto: "fixedChunkSize"),
     12: .same(proto: "inlineChildren"),
     13: .same(proto: "referencedChildrenTree"),
@@ -371,6 +470,7 @@ extension LLBFileInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementati
       case 2: try { try decoder.decodeSingularUInt64Field(value: &self.size) }()
       case 3: try { try decoder.decodeSingularUInt32Field(value: &self.posixPermissions) }()
       case 4: try { try decoder.decodeSingularEnumField(value: &self.compression) }()
+      case 5: try { try decoder.decodeSingularMessageField(value: &self._posixDetails) }()
       case 11: try {
         var v: UInt64?
         try decoder.decodeSingularUInt64Field(value: &v)
@@ -418,6 +518,9 @@ extension LLBFileInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementati
     if self.compression != .none {
       try visitor.visitSingularEnumField(value: self.compression, fieldNumber: 4)
     }
+    if let v = self._posixDetails {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
+    }
     // The use of inline closures is to circumvent an issue where the compiler
     // allocates stack space for every case branch when no optimizations are
     // enabled. https://github.com/apple/swift-protobuf/issues/1034
@@ -444,6 +547,7 @@ extension LLBFileInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementati
     if lhs.size != rhs.size {return false}
     if lhs.posixPermissions != rhs.posixPermissions {return false}
     if lhs.compression != rhs.compression {return false}
+    if lhs._posixDetails != rhs._posixDetails {return false}
     if lhs.payload != rhs.payload {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true

@@ -1,6 +1,6 @@
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -55,6 +55,9 @@ public struct LLBCASBlob {
     /// The type of the blob.
     internal let type: LLBFileType
 
+    /// POSIX permissions and ownership.
+    internal let posixDetails: LLBPosixFileDetails?
+
     /// The parsed information on the object.
     private let contents: Contents
 
@@ -69,11 +72,12 @@ public struct LLBCASBlob {
         }
     }
 
-    internal init(db: LLBCASDatabase, receivedId: TypedID, type: LLBFileType, size: Int, contents: Contents) {
+    internal init(db: LLBCASDatabase, receivedId: TypedID, type: LLBFileType, posixDetails: LLBPosixFileDetails? = nil, size: Int, contents: Contents) {
         self.db = db
         self.receivedId = receivedId
         self.type = type
         self.size = size
+        self.posixDetails = posixDetails
         self.contents = contents
     }
 
@@ -90,6 +94,7 @@ public struct LLBCASBlob {
             self.size = object.data.readableBytes
             self.type = advertisedType
             self.receivedId = .inner(id)
+            self.posixDetails = nil
             self.contents = .flat(innerID: id, db.group.next().makeSucceededFuture(object.data))
             return
         }
@@ -101,6 +106,8 @@ public struct LLBCASBlob {
 
         self.type = info.type
         self.receivedId = .outer(id)
+
+        self.posixDetails = info.hasPosixDetails ? info.posixDetails : nil
 
         // Check the type is actually a blob we understand.
         guard info.type == .plainFile || info.type == .executable else {
@@ -227,29 +234,41 @@ public struct LLBCASBlob {
     /// Represent a single file in a CASFSNode-compatible format.
     /// Since CASFSNode can't represent a single file yet, this will
     /// return a DataID of the file info object directly.
-    public static func `import`(data: LLBByteBuffer, isExecutable: Bool = false, in db: LLBCASDatabase, _ ctx: Context) -> LLBFuture<LLBCASBlob> {
+    public static func `import`(data: LLBByteBuffer, isExecutable: Bool = false, in db: LLBCASDatabase, posixDetails: LLBPosixFileDetails? = nil, options: LLBCASFileTree.ImportOptions? = nil, _ ctx: Context) -> LLBFuture<LLBCASBlob> {
 
-        guard isExecutable || data.readableBytes > Self.maxChunkSize else {
-            // If a plain file, just put the file directly.
-            // FIXME: large files should be split.
-            return db.put(refs: [], data: data, ctx).map { id in
-                LLBCASBlob(db: db, receivedId: .inner(id),
-                    type: .plainFile,
-                    size: data.readableBytes,
-                    contents: .flat(innerID: id, db.group.next().makeSucceededFuture(data)))
-            }
-        }
+        let testId = LLBDataID(blake3hash: data, refs: [])
 
         var fileInfo = LLBFileInfo()
         fileInfo.type = isExecutable ? .executable : .plainFile
         fileInfo.size = UInt64(data.readableBytes)
         fileInfo.compression = .none
         fileInfo.fixedChunkSize = UInt64(data.readableBytes) // TODO: Split
-        return db.put(refs: [], data: data, ctx).flatMap { blobId in
+        if let pd = posixDetails {
+            fileInfo.update(posixDetails: pd, options: options)
+        }
+
+        guard isExecutable || data.readableBytes > Self.maxChunkSize else {
+            // If a plain file, just put the file directly.
+            // FIXME: large files should be split.
+            return db.contains(testId, ctx).flatMap { exists in
+                exists ? db.group.next().makeSucceededFuture(testId) : db.put(data: data, ctx)
+            }.map { id in
+                LLBCASBlob(db: db, receivedId: .inner(id),
+                    type: .plainFile,
+                    posixDetails: fileInfo.hasPosixDetails ? fileInfo.posixDetails : nil,
+                    size: data.readableBytes,
+                    contents: .flat(innerID: id, db.group.next().makeSucceededFuture(data)))
+            }
+        }
+
+        return db.contains(testId, ctx).flatMap { exists in
+            exists ? db.group.next().makeSucceededFuture(testId) : db.put(data: data, ctx)
+        }.flatMap { blobId in
             do {
                 return db.put(refs: [blobId], data: try fileInfo.toBytes(), ctx).map { outerId in
                     LLBCASBlob(db: db, receivedId: .outer(outerId),
                         type: fileInfo.type,
+                        posixDetails: fileInfo.hasPosixDetails ? fileInfo.posixDetails : nil,
                         size: data.readableBytes,
                         contents: .chunked(chunks: [blobId], chunkSize: Int(fileInfo.fixedChunkSize)))
                 }
@@ -297,11 +316,11 @@ public struct LLBCASBlob {
     public func asDirectoryEntry(filename: String) -> LLBDirectoryEntryID {
         let chunks = chunkIDs()
         if let chunk = chunks.first, chunks.count == 1 {
-            return LLBDirectoryEntryID(info: .init(name: filename, type: type, size: size), id: chunk)
+            return LLBDirectoryEntryID(info: .init(name: filename, type: type, size: size, posixDetails: self.posixDetails), id: chunk)
         }
         switch receivedId {
         case .outer(let id):
-            return LLBDirectoryEntryID(info: .init(name: filename, type: type, size: size), id: id)
+            return LLBDirectoryEntryID(info: .init(name: filename, type: type, size: size, posixDetails: self.posixDetails), id: id)
         case .inner(_):
             fatalError("Multichunk blob cannot be represented with inner id")
         }

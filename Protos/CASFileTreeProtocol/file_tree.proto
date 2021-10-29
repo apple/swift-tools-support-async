@@ -24,6 +24,20 @@ enum LLBFileType {
     SYMLINK = 0x3;
 }
 
+message LLBPosixFileDetails {
+    /// The POSIX permissions (&0o7777). Masking is useful when storing entries
+    /// with very restricted permissions (such as (perm & 0o0007) == 0).
+    uint32 mode = 1;
+
+    /// Owner user identifier.
+    /// Semantically, absent owner == 0x0 ~= current uid.
+    uint32 owner = 2;
+
+    /// Owner group identifier.
+    /// Semantically, absent owner == 0x0 ~= current gid.
+    uint32 group = 3;
+}
+
 message LLBDirectoryEntry {
     /// The name of the directory entry.
     string name = 1;
@@ -33,6 +47,10 @@ message LLBDirectoryEntry {
 
     /// The (aggregate) size of the directory entry.
     uint64 size = 3;
+
+    /// Mode and permissions. _Can_ optionally be present in the
+    /// directory entry because the file can be just a direct blob reference.
+    LLBPosixFileDetails posixDetails = 4;
 }
 
 /// The list of file names and associated information, of a directory.
@@ -56,6 +74,7 @@ message LLBFileInfo {
     /// is unspecified.
     uint64 size = 2;
 
+    /// OBSOLETE. Use posixDetails.
     /// The POSIX permissions (&0o777). Useful when storing entries
     /// with very restricted permissions (such as (perm & 0o007) == 0).
     uint32 posixPermissions = 3;
@@ -64,6 +83,9 @@ message LLBFileInfo {
     ///  * Compression ought not to be applied to symlinks.
     ///  * Compression is applied after chunking, to retain seekability.
     LLBFileDataCompressionMethod compression = 4;
+
+    /// Permission info useful for POSIX filesystems.
+    LLBPosixFileDetails posixDetails = 5;
 
     oneof payload {
         /// Files and symlinks:

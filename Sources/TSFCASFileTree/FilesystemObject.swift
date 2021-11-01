@@ -89,13 +89,19 @@ extension LLBPosixFileDetails {
         group = UInt32(exactly: info.st_gid) ?? 0
     }
 
-    init(from info: LLBFileInfo) {
+    init?(from info: LLBFileInfo) {
+        guard info.hasPosixDetails else {
+            return nil
+        }
         var posixDetails = info.posixDetails
         posixDetails.mode &= 0o7777
         self = posixDetails
     }
 
-    init(from info: LLBDirectoryEntry) {
+    init?(from info: LLBDirectoryEntry) {
+        guard info.hasPosixDetails else {
+            return nil
+        }
         var posixDetails = info.posixDetails
         posixDetails.mode &= 0o7777
         self = posixDetails

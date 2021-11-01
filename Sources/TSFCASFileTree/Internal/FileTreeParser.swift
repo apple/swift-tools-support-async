@@ -128,7 +128,7 @@ struct CASFileTreeParser {
 
     func parseDirectory(id: LLBDataID, path: AbsolutePath, casObject: LLBCASObject) throws -> (LLBFilesystemObject, [AnnotatedCASTreeChunk]) {
 
-        let posixDetails: LLBPosixFileDetails
+        let posixDetails: LLBPosixFileDetails?
         let dirContents: [LLBDirectoryEntry]
         let dirInfo = try LLBFileInfo.deserialize(from: casObject.data)
         guard dirInfo.type == .directory else {

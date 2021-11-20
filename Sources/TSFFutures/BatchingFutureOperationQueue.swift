@@ -28,7 +28,10 @@ public struct LLBBatchingFutureOperationQueue {
     let operationQueue: OperationQueue
 
     /// Maximum number of operations executed concurrently.
-    public let maxOpCount: Int
+    public var maxOpCount: Int {
+        get { operationQueue.maxConcurrentOperationCount }
+        set { operationQueue.maxConcurrentOperationCount = newValue }
+    }
 
     /// Return the number of operations currently queued.
     @inlinable
@@ -51,7 +54,6 @@ public struct LLBBatchingFutureOperationQueue {
     @inlinable
     public init(name: String, group: LLBFuturesDispatchGroup, maxConcurrentOperationCount maxOpCount: Int, qualityOfService: QualityOfService = .default) {
         self.group = group
-        self.maxOpCount = maxOpCount
         self.operationQueue = OperationQueue(tsf_withName: name, maxConcurrentOperationCount: maxOpCount)
         self.operationQueue.qualityOfService = qualityOfService
     }

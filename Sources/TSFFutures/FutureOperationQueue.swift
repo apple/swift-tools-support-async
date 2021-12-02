@@ -31,6 +31,11 @@ public final class LLBFutureOperationQueue {
     /// The user-specified "shares" that are currently being processed.
     private var numSharesInFLight = 0
 
+    /// Return the number of operations currently queued.
+    public var opCount: Int {
+        lock.withLock { numExecuting + workQueue.count }
+    }
+
     private struct WorkItem {
         let loop: LLBFuturesDispatchLoop
         let share: Int

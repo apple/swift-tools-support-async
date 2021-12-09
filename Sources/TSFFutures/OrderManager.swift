@@ -70,6 +70,7 @@ public class LLBOrderManager {
     case orderManagerReset(file: String, line: Int)
     }
 
+    @available(*, deprecated, message: "Use init(on:timeout:)")
     public init(timeout: DispatchTimeInterval = .seconds(60)) {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         self.groupDesignator = GroupDesignator.managedGroup(group)
@@ -147,17 +148,8 @@ public class LLBOrderManager {
     public func reset(file: String = #file, line: Int = #line) -> EventLoopFuture<Void> {
         restartInactivityTimer()
         let lock = self.lock
-        let toCancel: [WaitListElement] = lock.withLock {
-            let cancelList = waitlist
-            waitlist = []
-            nextToRun = Int.max
-            return cancelList
-        }
-        let error = Error.orderManagerReset(file: file, line: line)
-        let futures: [EventLoopFuture<Void>] = toCancel.sorted(by: {$0.order < $1.order}).map {
-            $0.promise.fail(error)
-            return $0.promise.futureResult.flatMapErrorThrowing { _ in () }
-        }
+
+        let futures = failPromises(file: file, line: line)
 
         return EventLoopFuture.whenAllSucceed(futures, on: eventLoop).map { [weak self] _ in
             guard let self = self else { return }
@@ -168,14 +160,32 @@ public class LLBOrderManager {
         }
     }
 
-    deinit {
-        let designator = groupDesignator
-        reset().whenSuccess {
-            guard case let .managedGroup(group) = designator else { return }
-            let q = DispatchQueue(label: "tsf.OrderManager")
-            q.async { try! group.syncShutdownGracefully() }
+    @discardableResult
+    private func failPromises(file: String = #file, line: Int = #line) -> [EventLoopFuture<Void>] {
+        let toCancel: [WaitListElement] = lock.withLock {
+            let cancelList = waitlist
+            waitlist = []
+            nextToRun = Int.max
+            return cancelList
         }
+        let error = Error.orderManagerReset(file: file, line: line)
+        return toCancel.sorted(by: {$0.order < $1.order}).map {
+            $0.promise.fail(error)
+            return $0.promise.futureResult.flatMapErrorThrowing { _ in () }
+        }
+    }
+
+    deinit {
         cancelTimer.setEventHandler { }
         cancelTimer.cancel()
+
+        failPromises()
+
+        guard case let .managedGroup(group) = groupDesignator else {
+            return
+        }
+
+        let q = DispatchQueue(label: "tsf.OrderManager")
+        q.async { try! group.syncShutdownGracefully() }
     }
 }

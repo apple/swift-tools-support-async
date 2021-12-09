@@ -1,6 +1,6 @@
 // This source file is part of the Swift.org open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -16,7 +16,17 @@ import NIO
 /// concurrently.
 public final class LLBFutureOperationQueue {
     /// Maximum allowed number of work items concurrently executing.
-    private let maxConcurrentOperations: Int
+    private var maxConcurrentOperations_: Int
+    public var maxConcurrentOperations: Int {
+        get {
+            lock.withLock { maxConcurrentOperations_ }
+        }
+        set {
+            scheduleMoreTasks {
+                maxConcurrentOperations_ = max(1, newValue)
+            }
+        }
+    }
 
     /// Maximum allowed number of shares concurrently executing.
     /// This option independently sets a cap on concurrency.
@@ -49,7 +59,7 @@ public final class LLBFutureOperationQueue {
     /// Create a new limiter which will only initiate `maxConcurrentOperations`
     /// operations simultaneously.
     public init(maxConcurrentOperations: Int, maxConcurrentShares: Int = .max) {
-        self.maxConcurrentOperations = max(1, maxConcurrentOperations)
+        self.maxConcurrentOperations_ = max(1, maxConcurrentOperations)
         self.maxConcurrentShares = max(1, maxConcurrentShares)
     }
 
@@ -77,7 +87,7 @@ public final class LLBFutureOperationQueue {
         func runBody() {
             let f = body()
             f.whenComplete { _ in
-                self.onTaskCompleted {
+                self.scheduleMoreTasks {
                     assert(self.numExecuting >= 1)
                     assert(self.numSharesInFLight >= share)
                     self.numExecuting -= 1
@@ -89,36 +99,40 @@ public final class LLBFutureOperationQueue {
 
         let workItem = WorkItem(loop: loop, share: share, notifyWhenScheduled: notifyWhenScheduled, run: runBody)
 
-        self.onTaskCompleted {
+        self.scheduleMoreTasks {
             workQueue.append(workItem)
         }
 
         return promise.futureResult
     }
 
-    private func onTaskCompleted(performUnderLock: () -> Void) {
+    private func scheduleMoreTasks(performUnderLock: () -> Void) {
         // Decrement our counter, and get a new item to run if available.
-        let toExecute: (loop: LLBFuturesDispatchLoop, notify: LLBPromise<Void>?, run: () -> Void)? = lock.withLock {
+        typealias Item = (loop: LLBFuturesDispatchLoop, notify: LLBPromise<Void>?, run: () -> Void)
+        let toExecute: [Item] = lock.withLock {
             performUnderLock()
 
-            // If we have room to execute the operation, do so immediately
-            // (outside the lock).
-            guard numExecuting < maxConcurrentOperations,
-                  numSharesInFLight < maxConcurrentShares else {
-                return nil
-            }
+            var scheduleItems: [Item] = []
 
-            // Schedule a new operation, if available.
-            if let op = workQueue.popFirst() {
+            // If we have room to execute the operation,
+            // do so immediately (outside the lock).
+            while numExecuting < maxConcurrentOperations_,
+                  numSharesInFLight < maxConcurrentShares {
+
+                // Schedule a new operation, if available.
+                guard let op = workQueue.popFirst() else {
+                    break
+                }
+
                 self.numExecuting += 1
                 self.numSharesInFLight += op.share
-                return (op.loop, op.notifyWhenScheduled, op.run)
+                scheduleItems.append((op.loop, op.notifyWhenScheduled, op.run))
             }
 
-            return nil
+            return scheduleItems
         }
 
-        if let (loop, notify, run) = toExecute {
+        for (loop, notify, run) in toExecute {
             loop.execute {
                 notify?.succeed(())
                 run()

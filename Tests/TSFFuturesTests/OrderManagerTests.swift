@@ -10,11 +10,6 @@ import TSFFutures
 
 class OrderManagerTests: XCTestCase {
 
-    func testOrderManagerWithGroup() throws {
-        let manager = LLBOrderManager()
-        try manager.reset().wait()
-    }
-
     func testOrderManagerWithLoop() throws {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {

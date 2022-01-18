@@ -70,20 +70,6 @@ public class LLBOrderManager {
     case orderManagerReset(file: String, line: Int)
     }
 
-    @available(*, deprecated, message: "Use init(on:timeout:)")
-    public init(timeout: DispatchTimeInterval = .seconds(60)) {
-        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        self.groupDesignator = GroupDesignator.managedGroup(group)
-        self.timeout = timeout
-        restartInactivityTimer()
-        cancelTimer.setEventHandler { [weak self] in
-            guard let self = self else { return }
-            _ = self.reset()
-            self.cancelTimer.cancel()
-        }
-        cancelTimer.resume()
-    }
-
     public init(on loop: EventLoop, timeout: DispatchTimeInterval = .seconds(60)) {
         self.groupDesignator = GroupDesignator.externallySuppliedGroup(loop)
         self.timeout = timeout

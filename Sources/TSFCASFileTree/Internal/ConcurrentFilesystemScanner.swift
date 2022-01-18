@@ -400,7 +400,7 @@ class FilesystemDirectoryIterator: IteratorProtocol {
             }
 
             guard let filename: String = withUnsafeBytes(of: &entry.pointee.d_name, { ptr in
-                String(validatingUTF8: ptr.bindMemory(to: CChar.self).baseAddress!)
+                String(validatingUTF8: ptr.baseAddress!.assumingMemoryBound(to: CChar.self))
             }) else {
                 // Not an UTF-8-convertible name. Ignore it with prejudice.
                 continue

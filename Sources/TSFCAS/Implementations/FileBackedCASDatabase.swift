@@ -88,10 +88,7 @@ public final class LLBFileBackedCASDatabase: LLBCASDatabase {
         let dataFile = fileName(for: id, prefix: .data)
 
         let refsBytes: LLBFuture<[UInt8]> = readFile(file: refsFile).map { refsData in
-            if let bytes = refsData.getBytes(at: 0, length: refsData.readableBytes) {
-                return bytes
-            }
-            return []
+            return Array(buffer: refsData)
         }
 
         let refs = refsBytes.flatMapThrowing {

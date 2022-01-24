@@ -9,6 +9,7 @@
 import Foundation
 
 import TSFUtility
+import NIOFoundationCompat
 
 
 // MARK:- CASObject Definition -
@@ -61,7 +62,7 @@ public extension LLBCASObject {
     func toData() throws -> Data {
         var pb = LLBPBCASObject()
         pb.refs = self.refs
-        pb.data = Data(self.data.getBytes(at: 0, length: self.data.readableBytes)!)
+        pb.data = Data(buffer: self.data)
         return try pb.serializedData()
     }
 }

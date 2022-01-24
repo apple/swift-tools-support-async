@@ -34,7 +34,7 @@ class InMemoryCASDatabaseTests: XCTestCase {
         XCTAssertEqual(id2, LLBDataID(string: "0~udZrZzFHJr8uovWT5dOWtKz95ZqKi-vBkpiH0mJfjM4="))
         XCTAssertEqual(obj2.size, 3)
         XCTAssertEqual(obj2.refs, [id1])
-        XCTAssertEqual(Array(obj2.data.readableBytesView[..< obj2.data.readableBytes]), [4, 5, 6])
+        XCTAssertEqual(Array(buffer: obj2.data), [4, 5, 6])
         XCTAssertEqual(try db.contains(id1, ctx).wait(), true)
 
         // Check contains on a missing object.

@@ -29,7 +29,7 @@ let package = Package(
         .target(
             name: "TSFFutures",
             dependencies: [
-                "NIO", "SwiftToolsSupport-auto",
+                "NIO", "NIOFoundationCompat", "SwiftToolsSupport-auto",
             ]
         ),
         .testTarget(

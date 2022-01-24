@@ -142,7 +142,7 @@ extension LLBDataID: LLBSerializable {
 
     @inlinable
     public init(from rawBytes: LLBByteBuffer) throws {
-        guard let dataId = LLBDataID(bytes: Array(buffer: rawBytes)[...]) else {
+        guard let dataId = LLBDataID(bytes: Array(buffer: rawBytes)) else {
             throw LLBDataIDSliceError.decoding("from slice of size \(rawBytes.readableBytes)")
         }
         self = dataId

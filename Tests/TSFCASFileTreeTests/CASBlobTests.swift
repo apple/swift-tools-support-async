@@ -52,7 +52,7 @@ class CASBlobTests: XCTestCase {
         for testRange in [0 ..< 0, 0 ..< 1, 0 ..< contents.count, 10 ..< 20, 20 ..< 128, 128 ..< 512] {
 
             let blobRange = try blob.read(range: testRange, ctx).wait()
-            let bytes: [UInt8] = Array(LLBByteBuffer(blobRange).readableBytesView[..< testRange.count])
+            let bytes: [UInt8] = Array(LLBByteBuffer(blobRange).readableBytesView.prefix(testRange.count))
             XCTAssertEqual(ArraySlice(bytes), contents[testRange])
         }
     }

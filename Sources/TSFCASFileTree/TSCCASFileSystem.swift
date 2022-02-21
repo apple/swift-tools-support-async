@@ -148,4 +148,16 @@ public final class TSCCASFileSystem: FileSystem {
     }
 
     public var homeDirectory: AbsolutePath { .root }
+
+    public func isReadable(_ path: AbsolutePath) -> Bool {
+        return !path.isRoot
+    }
+
+    public func isWritable(_ path: AbsolutePath) -> Bool {
+        return false
+    }
+
+    public var tempDirectory: AbsolutePath {
+        return (try? determineTempDirectory(nil)) ?? AbsolutePath("/tmp")
+    }
 }

@@ -135,8 +135,31 @@ internal final class FileSegmenter {
 
         let reportedSize = Int(sb.st_size)
 
+        let isMappingKnownToBeUnsafe: Bool
+
+        #if os(macOS)
+
+        var fsb = statfs();
+        guard (fstatfs(fd, &fsb) == 0) else {
+            throw FileSystemError(errno: errno, path)
+        }
+
+        if ((fsb.f_flags & UInt32(MNT_LOCAL)) == 0 || (fsb.f_flags & UInt32(MNT_REMOVABLE)) != 0) {
+            isMappingKnownToBeUnsafe = true
+        } else {
+            isMappingKnownToBeUnsafe = false
+        }
+
+        #else
+
+        isMappingKnownToBeUnsafe = false
+
+        #endif
+
         // For relatively small size, just read them in memory.
-        guard reportedSize >= minMmapSize else {
+        let shouldMap = reportedSize >= minMmapSize && !isMappingKnownToBeUnsafe
+
+        guard shouldMap else {
             if reportedSize == 0 {
                 // Do not stash fds for empty files.
                 self.reuseFD = .init(value: -1)

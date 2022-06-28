@@ -15,8 +15,13 @@
         "repositoryURL": "https://github.com/apple/swift-nio.git",
         "state": {
           "branch": null,
+<<<<<<< HEAD
           "revision": "ece5057615d1bee848341eceafdf04ca54d60177",
           "version": "2.41.0"
+=======
+          "revision": "124119f0bb12384cef35aa041d7c3a686108722d",
+          "version": "2.40.0"
+>>>>>>> 66928b7 (To support linux better, replace operation queue with dispatch queue in BatchingFutureOperationQueue)
         }
       },
       {

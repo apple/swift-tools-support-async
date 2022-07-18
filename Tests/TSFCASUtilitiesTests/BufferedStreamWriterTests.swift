@@ -22,7 +22,7 @@ class BufferedStreamWriterTests: XCTestCase {
         let ctx = Context()
         let allocator = LLBByteBufferAllocator()
 
-        var writer = LLBBufferedStreamWriter(db, bufferSize: 32)
+        let writer = LLBBufferedStreamWriter(db, bufferSize: 32)
 
         var buffer = allocator.buffer(capacity: 128)
         buffer.writeRepeatingByte(65, count: 16)
@@ -60,7 +60,7 @@ class BufferedStreamWriterTests: XCTestCase {
         let ctx = Context()
         let allocator = LLBByteBufferAllocator()
 
-        var writer = LLBBufferedStreamWriter(db, bufferSize: 32)
+        let writer = LLBBufferedStreamWriter(db, bufferSize: 32)
 
         var buffer = allocator.buffer(capacity: 128)
         buffer.writeRepeatingByte(65, count: 16)

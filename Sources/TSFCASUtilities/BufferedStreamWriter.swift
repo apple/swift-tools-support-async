@@ -8,7 +8,7 @@ fileprivate extension LLBByteBuffer {
 }
 
 /// Stream writer that buffers data before ingesting it into the CAS database.
-public struct LLBBufferedStreamWriter {
+public class LLBBufferedStreamWriter {
     private let bufferSize: Int
     private let lock = NIOConcurrencyHelpers.Lock()
     private var outputWriter: LLBLinkedListStreamWriter
@@ -26,7 +26,7 @@ public struct LLBBufferedStreamWriter {
         self.currentBuffer = LLBByteBufferAllocator.init().buffer(capacity: bufferSize)
     }
 
-    public mutating func rebase(onto newBase: LLBDataID, _ ctx: Context) {
+    public func rebase(onto newBase: LLBDataID, _ ctx: Context) {
         lock.withLock {
             outputWriter.rebase(onto: newBase, ctx)
         }
@@ -34,7 +34,7 @@ public struct LLBBufferedStreamWriter {
 
     /// Writes a chunk of data into the stream. Flushes if the current buffer would overflow, or if the data to write
     /// is larger than the buffer size.
-    mutating public func write(data: LLBByteBuffer, channel: UInt8, _ ctx: Context = .init()) {
+    public func write(data: LLBByteBuffer, channel: UInt8, _ ctx: Context = .init()) {
         lock.withLock {
             if channel != currentBufferedChannel || data.readableBytes > currentBuffer.availableCapacity
             {
@@ -61,14 +61,14 @@ public struct LLBBufferedStreamWriter {
     }
 
     /// Flushes the buffer into the stream writer.
-    mutating public func flush(_ ctx: Context = .init()) {
+    public func flush(_ ctx: Context = .init()) {
         lock.withLock {
             _flush(ctx)
         }
     }
 
     /// Private implementation of flush, must be called within the lock.
-    private mutating func _flush(_ ctx: Context) {
+    private func _flush(_ ctx: Context) {
         if currentBuffer.readableBytes > 0, let currentBufferedChannel = currentBufferedChannel {
             outputWriter.append(
                 data: currentBuffer,

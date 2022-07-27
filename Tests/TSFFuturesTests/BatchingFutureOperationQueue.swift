@@ -11,9 +11,15 @@ import TSFFutures
 
 
 class BatchingFutureOperationQueueTests: XCTestCase {
-    
-    func doDynamic(q: LLBBatchingFutureOperationQueue) throws {
-        let manager = LLBOrderManager(on: q.group.next(), timeout: .seconds(5))
+
+    // Test dynamic capacity increase.
+    func testDynamic() throws {
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer { try! group.syncShutdownGracefully() }
+
+        let manager = LLBOrderManager(on: group.next(), timeout: .seconds(5))
+
+        var q = LLBBatchingFutureOperationQueue(name: "foo", group: group, maxConcurrentOperationCount: 1)
 
         let opsInFlight = NIOAtomic.makeAtomic(value: 0)
 
@@ -54,20 +60,4 @@ class BatchingFutureOperationQueueTests: XCTestCase {
 
     }
 
-    // Test dynamic capacity increase.
-    func testDynamicDeprecated() throws {
-        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer { try! group.syncShutdownGracefully() }
-        let q = LLBBatchingFutureOperationQueue(name: "foo", group: group, maxConcurrentOperationCount: 1)
-        
-        try doDynamic(q: q)
-    }
-    
-    func testDynamic() throws {
-        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer { try! group.syncShutdownGracefully() }
-        let q = LLBBatchingFutureOperationQueue(name: "foo", group: group, maxConcurrentOperationCount: 1, dispatchQoS: .default)
-        
-        try doDynamic(q: q)
-    }
 }

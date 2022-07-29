@@ -12,11 +12,7 @@ let package = Package(
             targets: ["TSFCAS", "TSFCASFileTree", "TSFCASUtilities"]),
     ],
     dependencies: [
-<<<<<<< HEAD
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.32.0"),
-=======
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.40.0"),
->>>>>>> d4b5e97 (Remove OperationQueue implementation altogether and use equivalent dispatchQoS)
         .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.8.0"),
         .package(url: "https://github.com/apple/swift-tools-support-core.git", from: "0.2.3"),
     ],

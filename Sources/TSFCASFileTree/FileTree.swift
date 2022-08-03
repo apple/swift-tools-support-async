@@ -165,7 +165,7 @@ public final class LLBCASFileTree {
     public func lookup(_ name: String) -> (id: LLBDataID, info: LLBDirectoryEntry)? {
 
         guard name != "." else {
-            let entry = LLBDirectoryEntry(name: ".", type: .directory, size: aggregateSize)
+            let entry = LLBDirectoryEntry(name: ".", type: .directory, size: aggregateSize, posixDetails: self.posixDetails)
             return (id: self.id, info: entry)
         }
 
@@ -415,7 +415,8 @@ public final class LLBCASFileTree {
         for component in path.components.dropFirst().reversed() {
             rerootedTree = rerootedTree.flatMap { tree in
                 return LLBCASFileTree.create(files: [
-                    .init(info: LLBDirectoryEntry(name: component, type: .directory, size: tree.aggregateSize),
+                    .init(info: LLBDirectoryEntry(name: component, type: .directory, size: tree.aggregateSize,
+                                                  posixDetails: tree.posixDetails),
                           id: tree.id)], in: db, posixDetails: self.posixDetails, ctx)
             }
         }

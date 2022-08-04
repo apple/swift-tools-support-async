@@ -1311,6 +1311,8 @@ extension LLBFileInfo {
     mutating func update(posixDetails: LLBPosixFileDetails, options: LLBCASFileTree.ImportOptions?) {
         if let details = posixDetails.normalized(expectedMode: type.expectedPosixMode, options: options) {
             self.posixDetails = details
+        } else {
+            self.clearPosixDetails()
         }
     }
 
@@ -1318,9 +1320,11 @@ extension LLBFileInfo {
 
 extension LLBDirectoryEntry {
 
-    mutating func update(posixDetails: LLBPosixFileDetails, options: LLBCASFileTree.ImportOptions?) {
+    public mutating func update(posixDetails: LLBPosixFileDetails, options: LLBCASFileTree.ImportOptions?) {
         if let details = posixDetails.normalized(expectedMode: type.expectedPosixMode, options: options) {
             self.posixDetails = details
+        } else {
+            self.clearPosixDetails()
         }
     }
 

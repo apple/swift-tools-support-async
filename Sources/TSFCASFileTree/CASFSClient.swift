@@ -78,7 +78,7 @@ public struct LLBCASFSClient {
 
     /// Save Data to CAS
     public func store(_ data: Data, type: LLBFileType = .plainFile, _ ctx: Context) -> LLBFuture<LLBCASFSNode> {
-        LLBCASBlob.import(data: LLBByteBuffer.withBytes(ArraySlice<UInt8>(data)), isExecutable: type == .executable, in: db, ctx).map { LLBCASFSNode(blob: $0, db: self.db) }
+        LLBCASBlob.import(data: LLBByteBuffer.withBytes(data), isExecutable: type == .executable, in: db, ctx).map { LLBCASFSNode(blob: $0, db: self.db) }
     }
 
 }
@@ -93,7 +93,7 @@ extension LLBCASFSClient {
     }
 
     public func store(_ data: Data, type: LLBFileType = .plainFile, _ ctx: Context) -> LLBFuture<LLBDataID> {
-        LLBCASBlob.import(data: LLBByteBuffer.withBytes(ArraySlice<UInt8>(data)), isExecutable: type == .executable, in: db, ctx).flatMap { $0.export(ctx) }
+        LLBCASBlob.import(data: LLBByteBuffer.withBytes(data), isExecutable: type == .executable, in: db, ctx).flatMap { $0.export(ctx) }
     }
 }
 

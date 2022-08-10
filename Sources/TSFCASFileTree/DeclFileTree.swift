@@ -84,8 +84,7 @@ extension LLBCASFSClient {
         guard case .file(contents: let contents) = declTree else {
             return loop.makeFailedFuture(Error.invalidUse)
         }
-        return LLBCASBlob.import(data: LLBByteBuffer.withBytes(ArraySlice(contents)), isExecutable: false,
-                              in: db, ctx)
+        return LLBCASBlob.import(data: LLBByteBuffer.withBytes(contents), isExecutable: false, in: db, ctx)
     }
 
 }

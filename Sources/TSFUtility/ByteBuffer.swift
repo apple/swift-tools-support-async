@@ -7,7 +7,8 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import NIO
-
+import NIOFoundationCompat
+import Foundation
 
 public typealias LLBByteBuffer = NIO.ByteBuffer
 public typealias LLBByteBufferAllocator = NIO.ByteBufferAllocator
@@ -16,10 +17,15 @@ public typealias LLBByteBufferView = NIO.ByteBufferView
 
 public extension LLBByteBuffer {
     static func withBytes(_ data: ArraySlice<UInt8>) -> LLBByteBuffer {
-        let allocator = LLBByteBufferAllocator()
-        var buffer = allocator.buffer(capacity: data.count)
-        buffer.writeBytes(data)
-        return buffer
+        return LLBByteBuffer(bytes: data)
+    }
+
+    static func withBytes(_ data: Data) -> LLBByteBuffer {
+        return LLBByteBuffer(data: data)
+    }
+
+    static func withBytes(_ data: Array<UInt8>) -> LLBByteBuffer {
+        return LLBByteBuffer(bytes: data)
     }
 }
 

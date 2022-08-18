@@ -111,6 +111,9 @@ public struct LLBBatchingFutureOperationQueue {
         }
     }
 
+    // Deprecated: If we want to limit concurrency on EventLoopThreads, use FutureOperationQueue instead.
+    // A future returning body is expected to not block.
+    @available(*, deprecated, message: "Use FutureOperationQueue instead.")
     public func execute<T>(_ body: @escaping () -> LLBFuture<T>) -> LLBFuture<T> {
         return self.concurrencyLimiter.withReplenishableLimit(eventLoop: group.any()) { eventLoop in
             let promise = eventLoop.makePromise(of: T.self)

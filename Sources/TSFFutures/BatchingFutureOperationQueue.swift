@@ -148,11 +148,10 @@ public struct LLBBatchingFutureOperationQueue {
     }
 
     private static func bridged(maxOpCount: Int) -> Int {
-        switch maxOpCount {
-        case OperationQueue.defaultMaxConcurrentOperationCount:
+        if maxOpCount < 0 {
+            precondition(maxOpCount == OperationQueue.defaultMaxConcurrentOperationCount)
             return System.coreCount
-        default:
-            return maxOpCount
         }
+        return maxOpCount
     }
 }

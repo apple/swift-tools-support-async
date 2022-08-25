@@ -1,4 +1,4 @@
-// swift-tools-version:5.1
+// swift-tools-version:5.5
 import PackageDescription
 
 let package = Package(
@@ -29,7 +29,9 @@ let package = Package(
         .target(
             name: "TSFFutures",
             dependencies: [
-                "NIO", "NIOFoundationCompat", "SwiftToolsSupport-auto",
+                .product(name: "NIO", package: "swift-nio"),
+                .product(name: "NIOFoundationCompat", package: "swift-nio"),
+                .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core")
             ]
         ),
         .testTarget(
@@ -48,7 +50,8 @@ let package = Package(
         .target(
             name: "TSFCAS",
             dependencies: [
-                "TSFFutures", "TSFUtility", "CBLAKE3", "SwiftProtobuf",
+                "TSFFutures", "TSFUtility", "CBLAKE3",
+                .product(name: "SwiftProtobuf", package: "swift-protobuf")
             ]
         ),
         .target(

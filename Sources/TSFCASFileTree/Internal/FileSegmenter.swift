@@ -6,6 +6,7 @@
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
+import Atomics
 import Foundation
 
 import TSCBasic
@@ -31,7 +32,7 @@ internal final class FileSegmenter {
     private let segmentSize: Int
 
     /// The file descriptor to use. An optimization for small files.
-    private let reuseFD: UnsafeEmbeddedAtomic<CInt>
+    private let reuseFD: ManagedAtomic<CInt>
 
     /// mmap() is not used because it did not show performance benefits.
     private let mappedAt: UnsafeMutableRawPointer?
@@ -139,9 +140,9 @@ internal final class FileSegmenter {
         guard reportedSize >= minMmapSize else {
             if reportedSize == 0 {
                 // Do not stash fds for empty files.
-                self.reuseFD = .init(value: -1)
+                self.reuseFD = .init(-1)
             } else {
-                self.reuseFD = .init(value: fd)
+                self.reuseFD = .init(fd)
                 fd = -1
             }
             self.mappedAt = nil
@@ -156,12 +157,12 @@ internal final class FileSegmenter {
 
         posix_madvise(basePointer, reportedSize, POSIX_MADV_SEQUENTIAL | POSIX_MADV_WILLNEED)
 
-        self.reuseFD = .init(value: -1)
+        self.reuseFD = .init(-1)
         self.mappedAt = basePointer
     }
 
     deinit {
-        let fd = self.reuseFD.exchange(with: -1)
+        let fd = self.reuseFD.exchange(-1, ordering: .relaxed)
         if fd >= 0 {
             close(fd)
         }
@@ -169,8 +170,6 @@ internal final class FileSegmenter {
         if let addr = mappedAt {
             munmap(addr, Int(statInfo.st_size))
         }
-
-        reuseFD.destroy()
     }
 
     /// Fetch a given segment from the file, while checking that the file
@@ -208,7 +207,7 @@ internal final class FileSegmenter {
         }
 
         let fd: CInt
-        switch reuseFD.exchange(with: -1) {
+        switch reuseFD.exchange(-1, ordering: .relaxed) {
         case let reused where reused >= 0:
             fd = reused
         default:

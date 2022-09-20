@@ -6,6 +6,7 @@
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
+import Atomics
 import NIOConcurrencyHelpers
 
 
@@ -37,11 +38,11 @@ open class LLBCancellablePromise<T> {
 
     /// A state maintaining the lifecycle of the promise.
     @usableFromInline
-    let state_: UnsafeEmbeddedAtomic<Int>
+    let state_: ManagedAtomic<Int>
 
     @inlinable
     public var state: State {
-        return State(rawValue: state_.load())!
+        return State(rawValue: state_.load(ordering: .relaxed))!
     }
 
     /// The eventual result of the promise.
@@ -70,13 +71,15 @@ open class LLBCancellablePromise<T> {
     /// could be accidentally fulfilled outside of CancellablePromise lifecycle.
     public init(promise: LLBPromise<T>) {
         self.promise = promise
-        self.state_ = .init(value: State.inProgress.rawValue)
+        self.state_ = .init(State.inProgress.rawValue)
     }
 
     /// Returns `true` if the state has been modified from .inProgress.
     private func modifyState(_ newState: State) -> Bool {
         assert(newState != .inProgress)
-        return state_.compareAndExchange(expected: State.inProgress.rawValue, desired: newState.rawValue)
+        return state_.compareExchange(
+            expected: State.inProgress.rawValue, desired: newState.rawValue, ordering: .sequentiallyConsistent
+        ).0
     }
 
     /// Fulfill the promise and return `true` if the promise was been fulfilled
@@ -111,7 +114,6 @@ open class LLBCancellablePromise<T> {
 
     deinit {
         _ = cancel(LLBCancellablePromiseError.promiseLeaked)
-        state_.destroy()
     }
 }
 

@@ -27,10 +27,19 @@ public struct LLBBatchingFutureOperationQueue {
     @usableFromInline
     let operationQueue: OperationQueue
 
+    /// Because `LLBBatchingFutureOperationQueue` is a struct, the compiler
+    /// will claim that `maxOpCount`'s setter is `mutating`, even though
+    /// `OperationQueue` is a threadsafe class.
+    /// This method exists as a workaround to adjust the underlying concurrency
+    /// of the operation queue without unnecessary synchronization.
+    public func setMaxOpCount(_ maxOpCount: Int) {
+        operationQueue.maxConcurrentOperationCount = maxOpCount
+    }
+
     /// Maximum number of operations executed concurrently.
     public var maxOpCount: Int {
         get { operationQueue.maxConcurrentOperationCount }
-        set { operationQueue.maxConcurrentOperationCount = newValue }
+        set { self.setMaxOpCount(newValue) }
     }
 
     /// Return the number of operations currently queued.

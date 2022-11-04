@@ -2,6 +2,7 @@
 //  Copyright © 2019-2021 Apple, Inc. All rights reserved.
 //
 
+import Atomics
 import XCTest
 
 import NIO
@@ -75,17 +76,17 @@ class FutureOperationQueueTests: XCTestCase {
 
         let q = LLBFutureOperationQueue(maxConcurrentOperations: 2)
 
-        let atomic = NIOAtomic.makeAtomic(value: 0)
+        let atomic = ManagedAtomic(0)
         var futures: [LLBFuture<Bool>] = []
         let lock = NIOConcurrencyHelpers.Lock()
         DispatchQueue.concurrentPerform(iterations: 1_000) { i in
             let result = q.enqueue(on: group.next()) { () -> LLBFuture<Bool> in
                 // Check that we aren't executing more operations than we would want.
                 let p = group.next().makePromise(of: Bool.self)
-                let prior = atomic.add(1)
+                let prior = atomic.loadThenWrappingIncrement(ordering: .relaxed)
                 XCTAssert(prior >= 0 && prior < 2, "saw \(prior + 1) concurrent tasks at start")
                 p.futureResult.whenComplete { _ in
-                    let prior = atomic.add(-1)
+                    let prior = atomic.loadThenWrappingDecrement(ordering: .relaxed)
                     XCTAssert(prior > 0 && prior <= 2, "saw \(prior) concurrent tasks at end")
                 }
 
@@ -118,39 +119,39 @@ class FutureOperationQueueTests: XCTestCase {
 
         let q = LLBFutureOperationQueue(maxConcurrentOperations: 1)
 
-        let opsInFlight = NIOAtomic.makeAtomic(value: 0)
+        let opsInFlight = ManagedAtomic(0)
 
         let future1: LLBFuture<Void> = q.enqueue(on: group.next()) {
-            _ = opsInFlight.add(1)
+            opsInFlight.wrappingIncrement(ordering: .relaxed)
             return manager.order(1).flatMap {
                 manager.order(6) {
-                    _ = opsInFlight.add(-1)
+                    opsInFlight.wrappingDecrement(ordering: .relaxed)
                 }
             }
         }
 
         let future2: LLBFuture<Void> = q.enqueue(on: group.next()) {
-            _ = opsInFlight.add(1)
+            opsInFlight.wrappingIncrement(ordering: .relaxed)
             return manager.order(3).flatMap {
                 manager.order(6) {
-                    _ = opsInFlight.add(-1)
+                    opsInFlight.wrappingDecrement(ordering: .relaxed)
                 }
             }
         }
 
         // Wait until future1 adss to opsInFlight.
         try manager.order(2).wait()
-        XCTAssertEqual(opsInFlight.load(), 1)
+        XCTAssertEqual(opsInFlight.load(ordering: .relaxed), 1)
 
         // The test breaks without this line.
         q.maxConcurrentOperations += 1
 
         try manager.order(4).wait()
-        XCTAssertEqual(opsInFlight.load(), 2)
+        XCTAssertEqual(opsInFlight.load(ordering: .relaxed), 2)
         try manager.order(5).wait()
 
         try manager.order(7).wait()
-        XCTAssertEqual(opsInFlight.load(), 0)
+        XCTAssertEqual(opsInFlight.load(ordering: .relaxed), 0)
 
         try future2.wait()
         try future1.wait()

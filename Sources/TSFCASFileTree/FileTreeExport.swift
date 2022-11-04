@@ -6,6 +6,7 @@
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
+import Atomics
 import Foundation
 
 import NIOConcurrencyHelpers
@@ -60,33 +61,24 @@ public extension LLBCASFileTree {
 
     final class ExportProgressStats: LLBCASFileTreeExportProgressStats {
         /// Bytes moved over the wire
-        internal let bytesDownloaded_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        internal let bytesDownloaded_ = ManagedAtomic<Int>(0)
         /// Bytes logically copied over
-        internal let bytesExported_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        internal let bytesExported_ = ManagedAtomic<Int>(0)
         /// Bytes that have to be copied
-        internal let bytesToExport_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        internal let bytesToExport_ = ManagedAtomic<Int>(0)
         /// Files/directories that have been synced
-        internal let objectsExported_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        internal let objectsExported_ = ManagedAtomic<Int>(0)
         /// Files/directories that have to be copied
-        internal let objectsToExport_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        internal let objectsToExport_ = ManagedAtomic<Int>(0)
         /// Concurrent downloads in progress
-        internal let downloadsInProgressObjects_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        internal let downloadsInProgressObjects_ = ManagedAtomic<Int>(0)
 
-        public var bytesDownloaded: Int { bytesDownloaded_.load() }
-        public var bytesExported: Int { bytesExported_.load() }
-        public var bytesToExport: Int { bytesToExport_.load() }
-        public var objectsExported: Int { objectsExported_.load() }
-        public var objectsToExport: Int { objectsToExport_.load() }
-        public var downloadsInProgressObjects: Int { downloadsInProgressObjects_.load() }
-
-        deinit {
-            bytesDownloaded_.destroy()
-            bytesExported_.destroy()
-            bytesToExport_.destroy()
-            objectsExported_.destroy()
-            objectsToExport_.destroy()
-            downloadsInProgressObjects_.destroy()
-        }
+        public var bytesDownloaded: Int { bytesDownloaded_.load(ordering: .relaxed) }
+        public var bytesExported: Int { bytesExported_.load(ordering: .relaxed) }
+        public var bytesToExport: Int { bytesToExport_.load(ordering: .relaxed) }
+        public var objectsExported: Int { objectsExported_.load(ordering: .relaxed) }
+        public var objectsToExport: Int { objectsToExport_.load(ordering: .relaxed) }
+        public var downloadsInProgressObjects: Int { downloadsInProgressObjects_.load(ordering: .relaxed) }
 
         public var debugDescription: String {
             return """
@@ -123,7 +115,7 @@ public extension LLBCASFileTree {
         let delegate = CASFileTreeWalkerDelegate(from: db, to: exportPathPrefix, materializer: materializer, storageBatcher: storageBatcher, stats: stats)
 
         let walker = ConcurrentHierarchyWalker(group: db.group, delegate: delegate)
-        _ = stats.objectsToExport_.add(1)
+        stats.objectsToExport_.wrappingIncrement(ordering: .relaxed)
         return walker.walk(.init(id: id, exportPath: exportPathPrefix, kindHint: nil), ctx)
     }
 }
@@ -155,16 +147,16 @@ private final class CASFileTreeWalkerDelegate: RetrieveChildrenProtocol {
     /// Conformance to `RetrieveChildrenProtocol`.
     func children(of item: Item, _ ctx: Context) -> LLBFuture<[Item]> {
 
-        _ = stats.downloadsInProgressObjects_.add(1)
+        stats.downloadsInProgressObjects_.wrappingIncrement(ordering: .relaxed)
 
         let casObjectFuture: LLBFuture<LLBCASObject> = db.get(item.id, ctx).flatMapThrowing { casObject in
-            _ = self.stats.downloadsInProgressObjects_.add(-1)
+            self.stats.downloadsInProgressObjects_.wrappingDecrement(ordering: .relaxed)
 
             guard let casObject = casObject else {
                 throw LLBExportError.missingReference(item.id)
             }
 
-            _ = self.stats.bytesDownloaded_.add(casObject.data.readableBytes)
+            self.stats.bytesDownloaded_.wrappingIncrement(by: casObject.data.readableBytes, ordering: .relaxed)
 
             return casObject
         }
@@ -204,22 +196,26 @@ private final class CASFileTreeWalkerDelegate: RetrieveChildrenProtocol {
                 assert(!overflow)
             }
 
-            _ = stats.objectsToExport_.add(others.count)
+            stats.objectsToExport_.wrappingIncrement(by: others.count, ordering: .relaxed)
 
             // If we downloaded the top object to figure out how much
             // we need to download, add that top object's size to aggregate.
-            if self.stats.bytesExported_.load() == 0 {
+            if self.stats.bytesExported_.load(ordering: .relaxed) == 0 {
                 aggregateSize += casObject.data.readableBytes
             }
 
             // Record the largest aggregate size (top level?)
             repeat {
-                let old = stats.bytesToExport_.load()
+                let old = stats.bytesToExport_.load(ordering: .relaxed)
                 guard aggregateSize > old else { break }
-                guard !self.stats.bytesToExport_.compareAndExchange(expected: old, desired: aggregateSize) else {
+                guard
+                    !self.stats.bytesToExport_.compareExchange(
+                        expected: old, desired: aggregateSize, ordering: .sequentiallyConsistent
+                    ).0
+                else {
                     break
                 }
-            } while aggregateSize > stats.bytesToExport_.load()
+            } while aggregateSize > stats.bytesToExport_.load(ordering: .relaxed)
         }
 
         do {
@@ -227,8 +223,8 @@ private final class CASFileTreeWalkerDelegate: RetrieveChildrenProtocol {
         } catch {
             throw LLBExportError.ioError(error)
         }
-        _ = stats.bytesExported_.add(fsObject.accountedDataSize)
-        _ = stats.objectsExported_.add(fsObject.accountedObjects)
+        stats.bytesExported_.wrappingIncrement(by: fsObject.accountedDataSize, ordering: .relaxed)
+        stats.objectsExported_.wrappingIncrement(by: fsObject.accountedObjects, ordering: .relaxed)
         return others
     }
 }

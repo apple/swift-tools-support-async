@@ -2,6 +2,7 @@
 //  Copyright © 2019-2020 Apple, Inc. All rights reserved.
 //
 
+import Atomics
 import XCTest
 
 import NIO
@@ -29,18 +30,18 @@ class CancellerTests: XCTestCase {
     /// This is a mock for some function that is able to cancel
     /// future's underlying operation.
     struct Handler: LLBCancelProtocol {
-        private let called = NIOAtomic.makeAtomic(value: 0)
+        private let called = ManagedAtomic(0)
 
         var wasCalled: Bool {
             return timesCalled > 0
         }
 
         var timesCalled: Int {
-            return called.load()
+            return called.load(ordering: .relaxed)
         }
 
         func cancel(reason: String?) {
-            _ = called.add(1)
+            called.wrappingIncrement(ordering: .relaxed)
         }
     }
 

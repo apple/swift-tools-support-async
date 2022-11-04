@@ -132,7 +132,7 @@ public final class LLBFileBackedCASDatabase: LLBCASDatabase {
 
         let refsFile = fileName(for: id, prefix: .refs)
         let refData = try! JSONEncoder().encode(refs)
-        let refBytes = LLBByteBuffer.withBytes(ArraySlice<UInt8>(refData))
+        let refBytes = LLBByteBuffer.withBytes(refData)
         let refFuture = writeIfNeeded(data: refBytes, path: refsFile)
 
         return dataFuture.and(refFuture).map { _ in id }

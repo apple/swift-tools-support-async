@@ -1,8 +1,19 @@
-// swift-tools-version:5.1
+// swift-tools-version:5.5
 import PackageDescription
+import class Foundation.ProcessInfo
+
+let macOSPlatform: SupportedPlatform
+if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTTSC_MACOS_DEPLOYMENT_TARGET"] {
+    macOSPlatform = .macOS(deploymentTarget)
+} else {
+    macOSPlatform = .macOS(.v10_13)
+}
 
 let package = Package(
     name: "swift-tools-support-async",
+    platforms: [
+        macOSPlatform
+    ],
     products: [
         .library(
             name: "SwiftToolsSupportAsync",
@@ -14,7 +25,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.32.0"),
         .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.8.0"),
-        .package(url: "https://github.com/apple/swift-tools-support-core.git", from: "0.2.3"),
+        .package(url: "https://github.com/apple/swift-tools-support-core.git", .upToNextMinor(from: "0.2.7")),
     ],
     targets: [
         // BLAKE3 hash support
@@ -29,7 +40,9 @@ let package = Package(
         .target(
             name: "TSFFutures",
             dependencies: [
-                "NIO", "NIOFoundationCompat", "SwiftToolsSupport-auto",
+                .product(name: "NIO", package: "swift-nio"),
+                .product(name: "NIOFoundationCompat", package: "swift-nio"),
+                .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core")
             ]
         ),
         .testTarget(
@@ -48,7 +61,8 @@ let package = Package(
         .target(
             name: "TSFCAS",
             dependencies: [
-                "TSFFutures", "TSFUtility", "CBLAKE3", "SwiftProtobuf",
+                "TSFFutures", "TSFUtility", "CBLAKE3",
+                .product(name: "SwiftProtobuf", package: "swift-protobuf")
             ]
         ),
         .target(

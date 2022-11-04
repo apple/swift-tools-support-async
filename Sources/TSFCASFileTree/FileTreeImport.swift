@@ -6,6 +6,7 @@
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
+import Atomics
 import Foundation
 
 import NIO
@@ -154,82 +155,87 @@ public extension LLBCASFileTree {
     final class ImportProgressStats: LLBCASFileTreeImportProgressStats, CustomDebugStringConvertible {
 
         /// Number of plain files to import (not directories).
-        let toImportFiles_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        let toImportFiles_ = ManagedAtomic<Int>(0)
         /// Number of objects to import.
-        let toImportObjects_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        let toImportObjects_ = ManagedAtomic<Int>(0)
         /// Number of bytes to import.
-        let toImportBytes_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        let toImportBytes_ = ManagedAtomic<Int>(0)
 
         /// Number of objects currently being presence-checked in CAS.
-        let checksProgressObjects_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        let checksProgressObjects_ = ManagedAtomic<Int>(0)
         /// Number of bytes currently being presence-checked in CAS.
-        let checksProgressBytes_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        let checksProgressBytes_ = ManagedAtomic<Int>(0)
         /// Number of objects checked in CAS.
-        let checkedObjects_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        let checkedObjects_ = ManagedAtomic<Int>(0)
         /// Number of bytes checked in CAS.
-        let checkedBytes_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        let checkedBytes_ = ManagedAtomic<Int>(0)
 
         /// Uploads currently in progress, objects.
-        let uploadsProgressObjects_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        let uploadsProgressObjects_ = ManagedAtomic<Int>(0)
         /// Uploads currently in progress, bytes.
-        let uploadsProgressBytes_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        let uploadsProgressBytes_ = ManagedAtomic<Int>(0)
         /// Objects moved over the wire.
-        let uploadedObjects_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        let uploadedObjects_ = ManagedAtomic<Int>(0)
         /// Bytes moved over the wire.
-        let uploadedBytes_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        let uploadedBytes_ = ManagedAtomic<Int>(0)
         /// Uploaded directory descriptions (not yet part of aggregateSize!)
-        let uploadedMetadataBytes_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        let uploadedMetadataBytes_ = ManagedAtomic<Int>(0)
 
         /// Objects ended up ended up being stored in the CAS.
-        let importedObjects_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        let importedObjects_ = ManagedAtomic<Int>(0)
         /// Bytes ended up being stored in the CAS.
-        let importedBytes_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        let importedBytes_ = ManagedAtomic<Int>(0)
 
         /// Execution phase
-        internal let phase_ = UnsafeEmbeddedAtomic<Int>(value: 0)
+        internal let phase_ = ManagedAtomic<Int>(0)
 
-        public var toImportFiles: Int { toImportFiles_.load() }
-        public var toImportObjects: Int { toImportObjects_.load() }
-        public var toImportBytes: Int { toImportBytes_.load() }
-        public var checksProgressObjects: Int { checksProgressObjects_.load() }
-        public var checksProgressBytes: Int { checksProgressBytes_.load() }
-        public var checkedObjects: Int { checkedObjects_.load() }
-        public var checkedBytes: Int { checkedBytes_.load() }
-        public var uploadsProgressObjects: Int { uploadsProgressObjects_.load() }
-        public var uploadsProgressBytes: Int { uploadsProgressBytes_.load() }
-        public var uploadedObjects: Int { uploadedObjects_.load() }
-        public var uploadedBytes: Int { uploadedBytes_.load() }
-        public var uploadedMetadataBytes: Int { uploadedMetadataBytes_.load() }
-        public var importedObjects: Int { importedObjects_.load() }
-        public var importedBytes: Int { importedBytes_.load() }
+        public var toImportFiles: Int { toImportFiles_.load(ordering: .relaxed) }
+        public var toImportObjects: Int { toImportObjects_.load(ordering: .relaxed) }
+        public var toImportBytes: Int { toImportBytes_.load(ordering: .relaxed) }
+        public var checksProgressObjects: Int { checksProgressObjects_.load(ordering: .relaxed) }
+        public var checksProgressBytes: Int { checksProgressBytes_.load(ordering: .relaxed) }
+        public var checkedObjects: Int { checkedObjects_.load(ordering: .relaxed) }
+        public var checkedBytes: Int { checkedBytes_.load(ordering: .relaxed) }
+        public var uploadsProgressObjects: Int { uploadsProgressObjects_.load(ordering: .relaxed) }
+        public var uploadsProgressBytes: Int { uploadsProgressBytes_.load(ordering: .relaxed) }
+        public var uploadedObjects: Int { uploadedObjects_.load(ordering: .relaxed) }
+        public var uploadedBytes: Int { uploadedBytes_.load(ordering: .relaxed) }
+        public var uploadedMetadataBytes: Int { uploadedMetadataBytes_.load(ordering: .relaxed) }
+        public var importedObjects: Int { importedObjects_.load(ordering: .relaxed) }
+        public var importedBytes: Int { importedBytes_.load(ordering: .relaxed) }
 
         fileprivate func reset() {
-            phase_.store(0)
-            toImportFiles_.store(0)
-            toImportObjects_.store(0)
-            toImportBytes_.store(0)
-            checksProgressObjects_.store(0)
-            checksProgressBytes_.store(0)
-            checkedObjects_.store(0)
-            checkedBytes_.store(0)
-            uploadsProgressObjects_.store(0)
-            uploadsProgressBytes_.store(0)
-            uploadedObjects_.store(0)
-            uploadedBytes_.store(0)
-            uploadedMetadataBytes_.store(0)
-            importedObjects_.store(0)
-            importedBytes_.store(0)
+            phase_.store(0, ordering: .relaxed)
+            toImportFiles_.store(0, ordering: .relaxed)
+            toImportObjects_.store(0, ordering: .relaxed)
+            toImportBytes_.store(0, ordering: .relaxed)
+            checksProgressObjects_.store(0, ordering: .relaxed)
+            checksProgressBytes_.store(0, ordering: .relaxed)
+            checkedObjects_.store(0, ordering: .relaxed)
+            checkedBytes_.store(0, ordering: .relaxed)
+            uploadsProgressObjects_.store(0, ordering: .relaxed)
+            uploadsProgressBytes_.store(0, ordering: .relaxed)
+            uploadedObjects_.store(0, ordering: .relaxed)
+            uploadedBytes_.store(0, ordering: .relaxed)
+            uploadedMetadataBytes_.store(0, ordering: .relaxed)
+            importedObjects_.store(0, ordering: .relaxed)
+            importedBytes_.store(0, ordering: .relaxed)
         }
 
         public internal(set) var phase: ImportPhase {
-            get { ImportPhase(rawValue: phase_.load())! }
+            get { ImportPhase(rawValue: phase_.load(ordering: .relaxed))! }
             set {
                 repeat {
                     let currentPhase = phase
                     guard !currentPhase.isFinalPhase else {
                         break   // Do not change the final state.
                     }
-                    guard !phase_.compareAndExchange(expected: currentPhase.rawValue, desired: newValue.rawValue) else {
+                    guard
+                        !phase_.compareExchange(
+                            expected: currentPhase.rawValue, desired: newValue.rawValue,
+                            ordering: .sequentiallyConsistent
+                        ).0
+                    else {
                         break   // State change succeeded.
                     }
                     // Repeat attempt if need to set the final state.
@@ -260,24 +266,6 @@ public extension LLBCASFileTree {
         }
 
         public init() { }
-
-        deinit {
-            phase_.destroy()
-            toImportFiles_.destroy()
-            toImportObjects_.destroy()
-            toImportBytes_.destroy()
-            checksProgressObjects_.destroy()
-            checksProgressBytes_.destroy()
-            checkedObjects_.destroy()
-            checkedBytes_.destroy()
-            uploadsProgressObjects_.destroy()
-            uploadsProgressBytes_.destroy()
-            uploadedObjects_.destroy()
-            uploadedBytes_.destroy()
-            uploadedMetadataBytes_.destroy()
-            importedObjects_.destroy()
-            importedBytes_.destroy()
-        }
     }
 
     /// Import an entire file system subtree into a database.
@@ -360,41 +348,41 @@ private final class CASTreeImport {
     let finalResultPromise: LLBCancellablePromise<LLBDataID>
 
     func dbContains(_ segm: SegmentDescriptor, _ ctx: Context) -> LLBFuture<Bool> {
-        _ = stats.checksProgressObjects_.add(+1)
-        _ = stats.checksProgressBytes_.add(segm.uncompressedSize)
+        stats.checksProgressObjects_.wrappingIncrement(ordering: .relaxed)
+        stats.checksProgressBytes_.wrappingIncrement(by: segm.uncompressedSize, ordering: .relaxed)
         return segm.id.flatMap { id in
             return self._db.contains(id, ctx).map { result in
                 guard self.finalResultPromise.isCompleted == false else {
                     return false
                 }
                 let stats = self.stats
-                _ = stats.checkedObjects_.add(+1)
-                _ = stats.checkedBytes_.add(+segm.uncompressedSize)
-                _ = stats.checksProgressObjects_.add(-1)
-                _ = stats.checksProgressBytes_.add(-segm.uncompressedSize)
+                stats.checkedObjects_.wrappingIncrement(ordering: .relaxed)
+                stats.checkedBytes_.wrappingIncrement(by: segm.uncompressedSize, ordering: .relaxed)
+                stats.checksProgressObjects_.wrappingDecrement(ordering: .relaxed)
+                stats.checksProgressBytes_.wrappingDecrement(by: segm.uncompressedSize, ordering: .relaxed)
                 return result
             }
         }
     }
 
     func dbPut(refs: [LLBDataID], data: LLBByteBuffer, importSize: Int?, _ ctx: Context) -> LLBFuture<LLBDataID> {
-        _ = stats.uploadsProgressObjects_.add(+1)
-        _ = stats.uploadsProgressBytes_.add(data.readableBytes)
+        stats.uploadsProgressObjects_.wrappingIncrement(ordering: .relaxed)
+        stats.uploadsProgressBytes_.wrappingIncrement(by: data.readableBytes, ordering: .relaxed)
         return _db.put(refs: refs, data: data, ctx).map { result in
             guard self.finalResultPromise.isCompleted == false else {
                 return result
             }
             let stats = self.stats
-            _ = stats.uploadsProgressObjects_.add(-1)
-            _ = stats.uploadsProgressBytes_.add(-data.readableBytes)
-            _ = stats.uploadedBytes_.add(data.readableBytes)
+            stats.uploadsProgressObjects_.wrappingDecrement(ordering: .relaxed)
+            stats.uploadsProgressBytes_.wrappingDecrement(by: data.readableBytes, ordering: .relaxed)
+            stats.uploadedBytes_.wrappingIncrement(by: data.readableBytes, ordering: .relaxed)
             if let size = importSize {
                 // Objects = file objects/chunks. We only count them
                 // if the import size is available, indicating the
                 // [near] final put.
-                _ = stats.uploadedObjects_.add(1)
-                _ = stats.importedObjects_.add(1)
-                _ = stats.importedBytes_.add(size)
+                stats.uploadedObjects_.wrappingIncrement(ordering: .relaxed)
+                stats.importedObjects_.wrappingIncrement(ordering: .relaxed)
+                stats.importedBytes_.wrappingIncrement(by: size, ordering: .relaxed)
             }
             return result
         }
@@ -471,7 +459,7 @@ private final class CASTreeImport {
         }).map { scanner -> [LLBFuture<[ConcurrentFilesystemScanner.Element]>] in
             if TSCBasic.localFileSystem.isFile(importPath) {
                 // We can import individual files just fine.
-                _ = stats.toImportObjects_.add(1)
+                stats.toImportObjects_.wrappingIncrement(ordering: .relaxed)
                 return [loop.makeSucceededFuture([(importPath, .REG)])]
             } else {
                 // Scan the filesystem tree using multiple threads.
@@ -481,7 +469,7 @@ private final class CASTreeImport {
                     var pathInfos = [ConcurrentFilesystemScanner.Element]()
                     for pathInfo in scanner {
                         pathInfos.append(pathInfo)
-                        _ = stats.toImportObjects_.add(1)
+                        stats.toImportObjects_.wrappingIncrement(ordering: .relaxed)
                     }
                     return pathInfos
                   }
@@ -602,9 +590,10 @@ private final class CASTreeImport {
                     do {
                         let (refs, dirData, aggregateSize) = try self.constructDirectoryContents(subpaths, wireFormat: self.options.wireFormat)
 
-                        _ = stats.toImportBytes_.add(dirData.readableBytes)
+                        stats.toImportBytes_.wrappingIncrement(by: dirData.readableBytes, ordering: .relaxed)
                         return self.dbPut(refs: refs, data: dirData, importSize: dirData.readableBytes, ctx).map { id in
-                            _ = stats.uploadedMetadataBytes_.add(dirData.readableBytes)
+                            stats.uploadedMetadataBytes_.wrappingIncrement(
+                                by: dirData.readableBytes, ordering: .relaxed)
                             var dirEntry = LLBDirectoryEntry()
                             dirEntry.name = path.pathString
                             dirEntry.type = .directory
@@ -917,9 +906,10 @@ private final class CASTreeImport {
         }
 
         // Add the rest of the chunks to the number of objects to import.
-        _ = stats.toImportObjects_.add(max(0, allSegmentsUncompressedDataSize - 1) / options.fileChunkSize)
-        _ = stats.toImportBytes_.add(allSegmentsUncompressedDataSize)
-        _ = stats.toImportFiles_.add(1)
+        stats.toImportObjects_.wrappingIncrement(
+            by: max(0, allSegmentsUncompressedDataSize - 1) / options.fileChunkSize, ordering: .relaxed)
+        stats.toImportBytes_.wrappingIncrement(by: allSegmentsUncompressedDataSize, ordering: .relaxed)
+        stats.toImportFiles_.wrappingIncrement(ordering: .relaxed)
 
         // We check if the remote contains the object before ingesting.
         //
@@ -965,8 +955,8 @@ private final class CASTreeImport {
                 // — When the file is top level (importing a single file).
                 guard segm.isCompressed || topLevel else {
                     if let size = importSize {
-                        _ = stats.importedObjects_.add(1)
-                        _ = stats.importedBytes_.add(size)
+                        stats.importedObjects_.wrappingIncrement(ordering: .relaxed)
+                        stats.importedBytes_.wrappingIncrement(by: size, ordering: .relaxed)
                     }
                     return loop.makeSucceededFuture(encodeNextStep(for: blobId))
                 }

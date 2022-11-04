@@ -61,4 +61,14 @@ class BatchingFutureOperationQueueTests: XCTestCase {
 
     }
 
+    // Test setMaxOpCount on immutable queue.
+    func testSetMaxConcurrency() throws {
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer { try! group.syncShutdownGracefully() }
+
+        let q = LLBBatchingFutureOperationQueue(name: "foo", group: group, maxConcurrentOperationCount: 1)
+        q.setMaxOpCount(q.maxOpCount + 1)
+        XCTAssertEqual(q.maxOpCount, 2)
+    }
+
 }

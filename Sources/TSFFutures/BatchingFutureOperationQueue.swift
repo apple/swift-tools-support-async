@@ -6,10 +6,11 @@
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
+import Dispatch
 import Foundation
-
+import NIO
+import NIOConcurrencyHelpers
 import TSCUtility
-
 
 /// Run the given computations on a given array in batches, exercising
 /// a specified amount of parallelism.
@@ -23,9 +24,12 @@ public struct LLBBatchingFutureOperationQueue {
     /// Threads capable of running futures.
     public let group: LLBFuturesDispatchGroup
 
-    /// Queue of outstanding operations.
-    @usableFromInline
-    let operationQueue: OperationQueue
+    /// Whether the queue is suspended.
+    @available(*, deprecated, message: "Property 'isSuspended' is deprecated.")
+    public var isSuspended: Bool {
+        // Cannot suspend a DispatchQueue
+        false
+    }
 
     /// Because `LLBBatchingFutureOperationQueue` is a struct, the compiler
     /// will claim that `maxOpCount`'s setter is `mutating`, even though
@@ -33,25 +37,54 @@ public struct LLBBatchingFutureOperationQueue {
     /// This method exists as a workaround to adjust the underlying concurrency
     /// of the operation queue without unnecessary synchronization.
     public func setMaxOpCount(_ maxOpCount: Int) {
-        operationQueue.maxConcurrentOperationCount = maxOpCount
+        concurrencyLimiter.maximumConcurrency = Self.bridged(maxOpCount: maxOpCount)
     }
 
     /// Maximum number of operations executed concurrently.
     public var maxOpCount: Int {
-        get { operationQueue.maxConcurrentOperationCount }
+        get { concurrencyLimiter.maximumConcurrency }
         set { self.setMaxOpCount(newValue) }
     }
 
     /// Return the number of operations currently queued.
-    @inlinable
-    public var opCount: Int {
-        return operationQueue.operationCount
-    }
+    public var opCount: Int { concurrencyLimiter.sharesInUse }
 
-    /// Whether the queue is suspended.
-    @inlinable
-    public var isSuspended: Bool {
-        return operationQueue.isSuspended
+    /// Name to be used for dispatch queue
+    private let name: String
+
+    /// QoS passed to DispatchQueue
+    private let qos: DispatchQoS
+
+    /// Lock protecting state.
+    private let lock = NIOConcurrencyHelpers.Lock()
+
+    /// Limits number of concurrent operations being executed
+    private let concurrencyLimiter: ConcurrencyLimiter
+
+    /// The queue of operations to run.
+    private var workQueue = NIO.CircularBuffer<DispatchWorkItem>()
+
+    @available(*, deprecated, message: "'qualityOfService' is deprecated: Use 'dispatchQoS'")
+    public init(
+        name: String, group: LLBFuturesDispatchGroup, maxConcurrentOperationCount maxOpCount: Int,
+        qualityOfService: QualityOfService
+    ) {
+        let dispatchQoS: DispatchQoS
+
+        switch qualityOfService {
+        case .userInteractive:
+            dispatchQoS = .userInteractive
+        case .userInitiated:
+            dispatchQoS = .userInitiated
+        case .utility:
+            dispatchQoS = .utility
+        case .background:
+            dispatchQoS = .background
+        default:
+            dispatchQoS = .default
+        }
+
+        self.init(name: name, group: group, maxConcurrentOperationCount: maxOpCount, dispatchQoS: dispatchQoS)
     }
 
     ///
@@ -60,49 +93,74 @@ public struct LLBBatchingFutureOperationQueue {
     ///    - group:     Threads capable of running futures.
     ///    - maxConcurrentOperationCount:
     ///                 Operations to execute in parallel.
-    @inlinable
-    public init(name: String, group: LLBFuturesDispatchGroup, maxConcurrentOperationCount maxOpCount: Int, qualityOfService: QualityOfService = .default) {
+    public init(name: String, group: LLBFuturesDispatchGroup, maxConcurrentOperationCount maxOpCount: Int) {
+        self.init(name: name, group: group, maxConcurrentOperationCount: maxOpCount, dispatchQoS: .default)
+    }
+
+    public init(
+        name: String, group: LLBFuturesDispatchGroup, maxConcurrentOperationCount maxOpCnt: Int,
+        dispatchQoS: DispatchQoS
+    ) {
         self.group = group
-        self.operationQueue = OperationQueue(tsf_withName: name, maxConcurrentOperationCount: maxOpCount)
-        self.operationQueue.qualityOfService = qualityOfService
+        self.name = name
+        self.qos = dispatchQoS
+
+        self.concurrencyLimiter = ConcurrencyLimiter(maximumConcurrency: Self.bridged(maxOpCount: maxOpCnt))
     }
 
-    @inlinable
     public func execute<T>(_ body: @escaping () throws -> T) -> LLBFuture<T> {
-        let promise = group.next().makePromise(of: T.self)
-        operationQueue.addOperation {
-            promise.fulfill(body)
+        return self.concurrencyLimiter.withReplenishableLimit(eventLoop: group.any()) { eventLoop in
+            let promise = eventLoop.makePromise(of: T.self)
+
+            DispatchQueue(label: self.name, qos: self.qos).async {
+                promise.fulfill(body)
+            }
+
+            return promise.futureResult
         }
-        return promise.futureResult
     }
 
-    @inlinable
+    // Deprecated: If we want to limit concurrency on EventLoopThreads, use FutureOperationQueue instead.
+    // A future returning body is expected to not block.
+    @available(*, deprecated, message: "Use FutureOperationQueue instead.")
     public func execute<T>(_ body: @escaping () -> LLBFuture<T>) -> LLBFuture<T> {
-        let promise = group.next().makePromise(of: T.self)
-        operationQueue.addOperation {
-            let f = body()
-            f.cascade(to: promise)
+        return self.concurrencyLimiter.withReplenishableLimit(eventLoop: group.any()) { eventLoop in
+            let promise = eventLoop.makePromise(of: T.self)
 
-            // Wait for completion, to ensure we maintain at most N concurrent operations.
-            _ = try? f.wait()
+            DispatchQueue(label: self.name, qos: self.qos).async {
+                body().cascade(to: promise)
+            }
+
+            return promise.futureResult
         }
-        return promise.futureResult
     }
 
     /// Order-preserving parallel execution. Wait for everything to complete.
     @inlinable
-    public func execute<A,T>(_ args: [A], minStride: Int = 1, _ body: @escaping (ArraySlice<A>) throws -> [T]) -> LLBFuture<[T]> {
+    public func execute<A, T>(_ args: [A], minStride: Int = 1, _ body: @escaping (ArraySlice<A>) throws -> [T])
+        -> LLBFuture<[T]>
+    {
         let futures: [LLBFuture<[T]>] = executeNoWait(args, minStride: minStride, body)
         let loop = futures.first?.eventLoop ?? group.next()
-        return LLBFuture<[T]>.whenAllSucceed(futures, on: loop).map{$0.flatMap{$0}}
+        return LLBFuture<[T]>.whenAllSucceed(futures, on: loop).map { $0.flatMap { $0 } }
     }
 
     /// Order-preserving parallel execution.
     /// Do not wait for all executions to complete, returning individual futures.
     @inlinable
-    public func executeNoWait<A,T>(_ args: [A], minStride: Int = 1, maxStride: Int = Int.max, _ body: @escaping (ArraySlice<A>) throws -> [T]) -> [LLBFuture<[T]>] {
-        let batches: [ArraySlice<A>] = args.tsc_sliceBy(maxStride: max(minStride, min(maxStride, args.count / maxOpCount)))
-        return batches.map{arg in execute{try body(arg)}}
+    public func executeNoWait<A, T>(
+        _ args: [A], minStride: Int = 1, maxStride: Int = Int.max, _ body: @escaping (ArraySlice<A>) throws -> [T]
+    ) -> [LLBFuture<[T]>] {
+        let batches: [ArraySlice<A>] = args.tsc_sliceBy(
+            maxStride: max(minStride, min(maxStride, args.count / maxOpCount)))
+        return batches.map { arg in execute { try body(arg) } }
     }
 
+    private static func bridged(maxOpCount: Int) -> Int {
+        if maxOpCount < 0 {
+            precondition(maxOpCount == OperationQueue.defaultMaxConcurrentOperationCount)
+            return System.coreCount
+        }
+        return maxOpCount
+    }
 }

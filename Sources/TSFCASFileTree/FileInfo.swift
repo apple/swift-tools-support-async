@@ -8,6 +8,8 @@
 
 import Foundation
 
+import NIOCore
+import SwiftProtobuf
 
 extension LLBFileInfo: LLBSerializable {
     /// Decode the given block back into a message.

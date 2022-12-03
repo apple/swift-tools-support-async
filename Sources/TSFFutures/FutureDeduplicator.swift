@@ -8,6 +8,7 @@
 
 import Dispatch
 
+import NIOCore
 import NIOConcurrencyHelpers
 
 

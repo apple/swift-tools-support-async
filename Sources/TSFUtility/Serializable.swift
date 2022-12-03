@@ -8,6 +8,7 @@
 
 import Foundation
 
+import NIOCore
 
 /// Serializable protocol describes a structure that can be serialized
 /// into a buffer of bytes, and deserialized back from the buffer of bytes.

@@ -8,6 +8,7 @@
 
 import Foundation
 
+import NIOCore
 
 /// Something that exposes working withContiguousStorage
 public enum LLBFastData {

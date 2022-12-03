@@ -9,6 +9,7 @@
 import Dispatch
 import Foundation
 
+import NIOCore
 import TSCBasic
 import TSCUtility
 

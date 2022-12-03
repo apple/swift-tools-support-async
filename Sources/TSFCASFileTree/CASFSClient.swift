@@ -8,6 +8,7 @@
 
 import Foundation
 
+import NIOCore
 import TSFCAS
 import TSCBasic
 import TSCUtility

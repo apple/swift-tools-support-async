@@ -9,6 +9,7 @@
 import Atomics
 import Foundation
 
+import NIOCore
 import NIOConcurrencyHelpers
 import TSCBasic
 import TSCUtility

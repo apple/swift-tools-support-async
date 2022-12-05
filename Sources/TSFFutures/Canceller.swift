@@ -15,7 +15,7 @@ public protocol LLBCancelProtocol {
 /// An object serving as a cancellation handler which can
 /// be supplied a cancellation procedure much later in its lifetime.
 public final class LLBCanceller {
-    private let mutex_ = NIOConcurrencyHelpers.Lock()
+    private let mutex_ = NIOConcurrencyHelpers.NIOLock()
 
     /// Whether and why it was cancelled.
     private var finalReason_: FinalReason? = nil
@@ -112,7 +112,7 @@ extension LLBCanceller: LLBCancelProtocol { }
 
 /// Create a chain of single-purpose handlers.
 public final class LLBCancelHandlersChain: LLBCancelProtocol {
-    private let lock = NIOConcurrencyHelpers.Lock()
+    private let lock = NIOConcurrencyHelpers.NIOLock()
     private var head: LLBCancelProtocol?
     private var tail: LLBCancelProtocol?
 

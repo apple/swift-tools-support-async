@@ -26,7 +26,7 @@ public class LLBFutureDeduplicator<Key: Hashable, Value> {
 
     /// Protect shared inFlightRequests.
     @usableFromInline
-    internal let lock = NIOConcurrencyHelpers.Lock()
+    internal let lock = NIOConcurrencyHelpers.NIOLock()
 
     /// The mapping of the keys currently being resolved.
     @usableFromInline

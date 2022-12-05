@@ -78,7 +78,7 @@ class FutureOperationQueueTests: XCTestCase {
 
         let atomic = ManagedAtomic(0)
         var futures: [LLBFuture<Bool>] = []
-        let lock = NIOConcurrencyHelpers.Lock()
+        let lock = NIOConcurrencyHelpers.NIOLock()
         DispatchQueue.concurrentPerform(iterations: 1_000) { i in
             let result = q.enqueue(on: group.next()) { () -> LLBFuture<Bool> in
                 // Check that we aren't executing more operations than we would want.

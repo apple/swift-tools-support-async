@@ -33,7 +33,7 @@ public final class LLBFutureOperationQueue {
     private let maxConcurrentShares: Int
 
     /// Lock protecting state.
-    private let lock = NIOConcurrencyHelpers.Lock()
+    private let lock = NIOConcurrencyHelpers.NIOLock()
 
     /// The number of executing futures.
     private var numExecuting = 0

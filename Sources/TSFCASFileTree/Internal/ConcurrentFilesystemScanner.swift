@@ -316,7 +316,7 @@ class FilesystemDirectoryIterator: IteratorProtocol {
     public typealias Element = ([NameAndType], hasMoreEntries: Bool)
 
     fileprivate let path: AbsolutePath
-    private let dirLock = NIOConcurrencyHelpers.Lock()
+    private let dirLock = NIOConcurrencyHelpers.NIOLock()
 #if canImport(Darwin)
     private var dir: UnsafeMutablePointer<DIR>!
 #elseif os(Linux)

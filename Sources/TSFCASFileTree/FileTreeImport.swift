@@ -531,7 +531,7 @@ private final class CASTreeImport {
                 return loop.makeSucceededFuture(firstFile.id)
             }
 
-            let udpLock = NIOConcurrencyHelpers.Lock()
+            let udpLock = NIOConcurrencyHelpers.NIOLock()
             var uploadedDirectoryPaths_ = [AbsolutePath: LLBFuture<(LLBDataID, LLBDirectoryEntry)?>]()
 
             // Now we have to add all the directories; we do so serially and in

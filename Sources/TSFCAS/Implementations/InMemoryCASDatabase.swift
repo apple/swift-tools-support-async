@@ -25,7 +25,7 @@ public final class LLBInMemoryCASDatabase {
     public var group: LLBFuturesDispatchGroup
 
     /// The lock protecting content.
-    let lock = NIOConcurrencyHelpers.Lock()
+    let lock = NIOConcurrencyHelpers.NIOLock()
 
     /// The total number of data bytes in the database (this does not include the size of refs).
     public var totalDataBytes: Int {

@@ -72,7 +72,7 @@ public class LLBConcurrentFileTreeWalker: RetrieveChildrenProtocol {
     }
 
     public class ScanResult {
-        let lock = NIOConcurrencyHelpers.Lock()
+        let lock = NIOConcurrencyHelpers.NIOLock()
         var collectedArguments = [FilterArgument]()
 
         public func reapResult() -> [FilterArgument] {

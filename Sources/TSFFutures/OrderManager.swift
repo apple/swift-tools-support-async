@@ -45,7 +45,7 @@ public class LLBOrderManager {
     private let timeout: DispatchTimeInterval
 
     private typealias WaitListElement = (order: Int, promise: LLBPromise<Void>, file: String, line: Int)
-    private let lock = NIOConcurrencyHelpers.Lock()
+    private let lock = NIOConcurrencyHelpers.NIOLock()
     private var waitlist = [WaitListElement]()
     private var nextToRun = 1
 

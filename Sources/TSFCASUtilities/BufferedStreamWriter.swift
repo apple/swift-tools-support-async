@@ -11,7 +11,7 @@ fileprivate extension LLBByteBuffer {
 /// Stream writer that buffers data before ingesting it into the CAS database.
 public class LLBBufferedStreamWriter {
     private let bufferSize: Int
-    private let lock = NIOConcurrencyHelpers.Lock()
+    private let lock = NIOConcurrencyHelpers.NIOLock()
     private var outputWriter: LLBLinkedListStreamWriter
     private var currentBuffer: LLBByteBuffer
     private var currentBufferedChannel: UInt8? = nil

@@ -185,7 +185,7 @@ public struct LLBFileBackedCASDatabaseScheme: LLBCASDatabaseScheme {
     }
 
     public static func open(group: LLBFuturesDispatchGroup, url: Foundation.URL) throws -> LLBCASDatabase {
-        return LLBFileBackedCASDatabase(group: group, path: AbsolutePath(url.path))
+        return try LLBFileBackedCASDatabase(group: group, path: AbsolutePath(validating: url.path))
     }
 }
 

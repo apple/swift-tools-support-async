@@ -104,8 +104,14 @@ extension LLBCASFSClient {
     /// CASFileTree would contain [some/path/a.txt, some/path/b.txt] (where both `some` and `path` represent
     /// CASFileTrees).
     public func wrap(_ id: LLBDataID, path: String, _ ctx: Context) -> LLBFuture<LLBCASFileTree> {
+        let absolutePath: AbsolutePath
+        do {
+            absolutePath = try AbsolutePath(validating: path, relativeTo: .root)
+        } catch {
+            return ctx.group.any().makeFailedFuture(error)
+        }
         return self.load(id, ctx).flatMap { node in
-            return AbsolutePath(path, relativeTo: .root)
+            return absolutePath
                 .components
                 .dropFirst()
                 .reversed()

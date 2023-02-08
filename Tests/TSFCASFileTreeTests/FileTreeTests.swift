@@ -84,22 +84,22 @@ class LLBCASFileTreeTests: XCTestCase {
         let ctx = Context()
 
         try checkLookupPath(
-            of: AbsolutePath("/missing"),
+            of: AbsolutePath(validating: "/missing"),
             in: .dir(["a": .file([1])]),
             is: nil)
         try checkLookupPath(
-            of: AbsolutePath("/a"),
+            of: AbsolutePath(validating: "/a"),
             in: .dir(["a": .file([1])]),
             is: (LLBDataID(blake3hash: LLBByteBuffer.withBytes([1]), refs: []), LLBDirectoryEntry(name: "a", type: .plainFile, size: 1)))
         try checkLookupPath(
-            of: AbsolutePath("/a/b"),
+            of: AbsolutePath(validating: "/a/b"),
             in: .dir(["a": .dir([
                             "b": .file([1])
                         ])
                 ]),
             is: (LLBDataID(blake3hash: LLBByteBuffer.withBytes([1]), refs: []), LLBDirectoryEntry(name: "b", type: .plainFile, size: 1)))
         try checkLookupPath(
-            of: AbsolutePath("/a/b/c"),
+            of: AbsolutePath(validating: "/a/b/c"),
             in: .dir(["a": .dir([
                             "b": .file([1])
                         ])
@@ -110,7 +110,7 @@ class LLBCASFileTreeTests: XCTestCase {
                 "b": .file([1])
             ]), ctx).wait()
         try checkLookupPath(
-            of: AbsolutePath("/a"),
+            of: AbsolutePath(validating: "/a"),
             in: .dir(["a": .dir([
                             "b": .file([1])
                         ])
@@ -159,7 +159,7 @@ class LLBCASFileTreeTests: XCTestCase {
         try checkMerge(
             a: .dir(["a": .file([1])]),
             b: .dir(["b": .file([2])]),
-            at: AbsolutePath("/"),
+            at: AbsolutePath(validating: "/"),
             expect: .dir([
                     "a": .file([1]),
                     "b": .file([2])]))
@@ -167,7 +167,7 @@ class LLBCASFileTreeTests: XCTestCase {
         try checkMerge(
             a: .dir(["a": .file([1])]),
             b: .dir(["b": .file([2])]),
-            at: AbsolutePath("/b"),
+            at: AbsolutePath(validating: "/b"),
             expect: .dir([
                     "a": .file([1]),
                     "b": .dir([
@@ -177,7 +177,7 @@ class LLBCASFileTreeTests: XCTestCase {
         try checkMerge(
             a: .dir(["a": .file([1])]),
             b: .dir(["b": .file([2])]),
-            at: AbsolutePath("/a"),
+            at: AbsolutePath(validating: "/a"),
             expect: .dir([
                     "a": .dir([
                             "b": .file([2])
@@ -262,10 +262,10 @@ class LLBCASFileTreeTests: XCTestCase {
         var modifiedTree: LLBCASFileTree?
 
         let returnCheckedPath = { (tree: LLBCASFileTree, path: String) in
-            try tree.lookup(path: AbsolutePath(path), in: db, ctx).wait()
+            try tree.lookup(path: AbsolutePath(validating: path), in: db, ctx).wait()
         }
         let returnRemoveResult = { (tree: LLBCASFileTree, path: String) in
-            modifiedTree = try tree.remove(path: AbsolutePath(path), in: db, ctx).wait()
+            modifiedTree = try tree.remove(path: AbsolutePath(validating: path), in: db, ctx).wait()
         }
 
         // deletion of existing file

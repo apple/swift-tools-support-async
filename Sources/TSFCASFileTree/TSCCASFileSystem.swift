@@ -158,6 +158,6 @@ public final class TSCCASFileSystem: FileSystem {
     }
 
     public var tempDirectory: AbsolutePath {
-        return (try? determineTempDirectory(nil)) ?? AbsolutePath("/tmp")
+        return (try? determineTempDirectory(nil)) ?? AbsolutePath.root.appending(component: "tmp")
     }
 }

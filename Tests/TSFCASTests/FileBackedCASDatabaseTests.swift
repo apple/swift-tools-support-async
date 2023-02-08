@@ -39,7 +39,9 @@ class FileBackedCASDatabaseTests: XCTestCase {
 
     /// ${TMPDIR} or just "/tmp", expressed as AbsolutePath
     private var temporaryPath: AbsolutePath {
-        return AbsolutePath(ProcessInfo.processInfo.environment["TMPDIR", default: "/tmp"])
+        get throws {
+            return try AbsolutePath(validating: ProcessInfo.processInfo.environment["TMPDIR", default: "/tmp"])
+        }
     }
 
 

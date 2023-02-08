@@ -75,7 +75,7 @@ public final class LLBCASFileTree {
     ///   - id: The id for the tree.
     ///   - object: The object backing this tree.
     ///   - at path: The logical path that leads to this tree.
-    public init(id: LLBDataID, object: LLBCASObject, at path: AbsolutePath = .init("/")) throws {
+    public init(id: LLBDataID, object: LLBCASObject, at path: AbsolutePath = .root) throws {
         self.id = id
         self.object = object
 

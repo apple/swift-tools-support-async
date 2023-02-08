@@ -37,7 +37,7 @@ public struct LLBFilesystemObject {
     }
 
     public init() {
-        self.path = AbsolutePath("/")
+        self.path = AbsolutePath.root
         self.content = Content.ignore
         self.posixDetails = nil
     }

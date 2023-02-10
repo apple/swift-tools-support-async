@@ -50,8 +50,22 @@ public struct LLBCancellableFuture<T>: LLBCancelProtocol {
 /// Some surface compatibility with EventLoopFuture to minimize
 /// the amount of code change in tests and other places.
 extension LLBCancellableFuture {
+    #if swift(>=5.7)
+    @available(*, noasync, message: "wait() can block indefinitely, prefer get()", renamed: "get()")
     @inlinable
     public func wait() throws -> T {
         try future.wait()
+    }
+    #else
+    @inlinable
+    public func wait() throws -> T {
+        try future.wait()
+    }
+    #endif
+
+    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+    @inlinable
+    public func get() async throws -> T {
+        try await future.get()
     }
 }

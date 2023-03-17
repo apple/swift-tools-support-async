@@ -863,7 +863,7 @@ private final class CASTreeImport {
             }
             type = .symlink
 
-            let target = LLBFastData(buf[..<count].map{ UInt8($0) })
+            let target = LLBFastData(buf[..<count].map{ UInt8(bitPattern: $0) })
             allSegmentsUncompressedDataSize = target.count
             importObject = .link(target: target)
             segmentDescriptors = [SegmentDescriptor(isCompressed: false, uncompressedSize: target.count, id: _db.identify(refs: [], data: target.toByteBuffer(), ctx))]

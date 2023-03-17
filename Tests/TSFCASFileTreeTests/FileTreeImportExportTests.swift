@@ -147,4 +147,42 @@ class ImportExportTests: XCTestCase {
         }
     }
 
+    func testUnicodeImport() throws {
+        let group = LLBMakeDefaultDispatchGroup()
+        let ctx = Context()
+
+        try withTemporaryDirectory(prefix: #function, removeTreeOnDeinit: true) { dir in
+            let target = "你好 你好"
+            let ret = symlink(target, dir.appending(component: "コカコーラ").pathString)
+            XCTAssertEqual(ret, 0)
+
+            let db = LLBInMemoryCASDatabase(group: group)
+            let stats = LLBCASFileTree.ImportProgressStats()
+
+            let id = try LLBCASFileTree.import(
+                path: dir, to: db, options: testOptions, stats: stats, ctx
+            ).wait()
+
+            // Get the object.
+            let tree: LLBCASFileTree
+            do {
+                let casObject = try db.get(id, ctx).wait()
+                tree = try LLBCASFileTree(id: id, object: casObject!)
+            } catch {
+                XCTFail("Unexpected CASTree download error: \(errno)")
+                throw error
+            }
+
+            // Check the result.
+            XCTAssertEqual(
+                tree.files,
+                [
+                    LLBDirectoryEntry(name: "コカコーラ", type: .symlink, size: target.utf8.count),
+                ])
+        }
+
+        XCTAssertNoThrow(try group.syncShutdownGracefully())
+    }
+
+
 }

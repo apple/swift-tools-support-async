@@ -55,6 +55,9 @@ let package = Package(
             name: "TSFUtility",
             dependencies: [
                 "TSFFutures",
+                .product(name: "NIO", package: "swift-nio"),
+                .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
+                .product(name: "NIOFoundationCompat", package: "swift-nio"),
             ]
         ),
 

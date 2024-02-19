@@ -49,12 +49,12 @@ public enum LLBExportIOError: Error {
 }
 
 public protocol LLBCASFileTreeExportProgressStats: AnyObject {
-    var bytesDownloaded: Int { get }
-    var bytesExported: Int { get }
-    var bytesToExport: Int { get }
-    var objectsExported: Int { get }
-    var objectsToExport: Int { get }
-    var downloadsInProgressObjects: Int { get }
+    var bytesDownloaded: Int64 { get }
+    var bytesExported: Int64 { get }
+    var bytesToExport: Int64 { get }
+    var objectsExported: Int64 { get }
+    var objectsToExport: Int64 { get }
+    var downloadsInProgressObjects: Int64 { get }
     var debugDescription: String { get }
 }
 
@@ -62,24 +62,24 @@ public extension LLBCASFileTree {
 
     final class ExportProgressStats: LLBCASFileTreeExportProgressStats {
         /// Bytes moved over the wire
-        internal let bytesDownloaded_ = ManagedAtomic<Int>(0)
+        internal let bytesDownloaded_ = ManagedAtomic<Int64>(0)
         /// Bytes logically copied over
-        internal let bytesExported_ = ManagedAtomic<Int>(0)
+        internal let bytesExported_ = ManagedAtomic<Int64>(0)
         /// Bytes that have to be copied
-        internal let bytesToExport_ = ManagedAtomic<Int>(0)
+        internal let bytesToExport_ = ManagedAtomic<Int64>(0)
         /// Files/directories that have been synced
-        internal let objectsExported_ = ManagedAtomic<Int>(0)
+        internal let objectsExported_ = ManagedAtomic<Int64>(0)
         /// Files/directories that have to be copied
-        internal let objectsToExport_ = ManagedAtomic<Int>(0)
+        internal let objectsToExport_ = ManagedAtomic<Int64>(0)
         /// Concurrent downloads in progress
-        internal let downloadsInProgressObjects_ = ManagedAtomic<Int>(0)
+        internal let downloadsInProgressObjects_ = ManagedAtomic<Int64>(0)
 
-        public var bytesDownloaded: Int { bytesDownloaded_.load(ordering: .relaxed) }
-        public var bytesExported: Int { bytesExported_.load(ordering: .relaxed) }
-        public var bytesToExport: Int { bytesToExport_.load(ordering: .relaxed) }
-        public var objectsExported: Int { objectsExported_.load(ordering: .relaxed) }
-        public var objectsToExport: Int { objectsToExport_.load(ordering: .relaxed) }
-        public var downloadsInProgressObjects: Int { downloadsInProgressObjects_.load(ordering: .relaxed) }
+        public var bytesDownloaded: Int64 { bytesDownloaded_.load(ordering: .relaxed) }
+        public var bytesExported: Int64 { bytesExported_.load(ordering: .relaxed) }
+        public var bytesToExport: Int64 { bytesToExport_.load(ordering: .relaxed) }
+        public var objectsExported: Int64 { objectsExported_.load(ordering: .relaxed) }
+        public var objectsToExport: Int64 { objectsToExport_.load(ordering: .relaxed) }
+        public var downloadsInProgressObjects: Int64 { downloadsInProgressObjects_.load(ordering: .relaxed) }
 
         public var debugDescription: String {
             return """
@@ -157,7 +157,7 @@ private final class CASFileTreeWalkerDelegate: RetrieveChildrenProtocol {
                 throw LLBExportError.missingReference(item.id)
             }
 
-            self.stats.bytesDownloaded_.wrappingIncrement(by: casObject.data.readableBytes, ordering: .relaxed)
+            self.stats.bytesDownloaded_.wrappingIncrement(by: Int64(casObject.data.readableBytes), ordering: .relaxed)
 
             return casObject
         }
@@ -197,7 +197,7 @@ private final class CASFileTreeWalkerDelegate: RetrieveChildrenProtocol {
                 assert(!overflow)
             }
 
-            stats.objectsToExport_.wrappingIncrement(by: others.count, ordering: .relaxed)
+            stats.objectsToExport_.wrappingIncrement(by: Int64(others.count), ordering: .relaxed)
 
             // If we downloaded the top object to figure out how much
             // we need to download, add that top object's size to aggregate.
@@ -211,7 +211,7 @@ private final class CASFileTreeWalkerDelegate: RetrieveChildrenProtocol {
                 guard aggregateSize > old else { break }
                 guard
                     !self.stats.bytesToExport_.compareExchange(
-                        expected: old, desired: aggregateSize, ordering: .sequentiallyConsistent
+                        expected: old, desired: Int64(aggregateSize), ordering: .sequentiallyConsistent
                     ).0
                 else {
                     break
@@ -224,8 +224,8 @@ private final class CASFileTreeWalkerDelegate: RetrieveChildrenProtocol {
         } catch {
             throw LLBExportError.ioError(error)
         }
-        stats.bytesExported_.wrappingIncrement(by: fsObject.accountedDataSize, ordering: .relaxed)
-        stats.objectsExported_.wrappingIncrement(by: fsObject.accountedObjects, ordering: .relaxed)
+        stats.bytesExported_.wrappingIncrement(by: Int64(fsObject.accountedDataSize), ordering: .relaxed)
+        stats.objectsExported_.wrappingIncrement(by: Int64(fsObject.accountedObjects), ordering: .relaxed)
         return others
     }
 }

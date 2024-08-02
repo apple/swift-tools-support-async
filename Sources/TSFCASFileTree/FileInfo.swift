@@ -41,7 +41,7 @@ extension LLBFileInfo {
     public static func deserialize(from buffer: LLBByteBuffer) throws -> Self {
         return try buffer.withUnsafeReadableBytesWithStorageManagement { (buffer, mgr) in
             _ = mgr.retain()
-            return try Self.init(serializedData: Data(
+            return try Self.init(serializedBytes: Data(
                 bytesNoCopy: UnsafeMutableRawPointer(mutating: buffer.baseAddress!),
                 count: buffer.count,
                 deallocator: .custom({ _,_ in mgr.release() }
@@ -51,7 +51,7 @@ extension LLBFileInfo {
 
     @inlinable
     public static func deserialize(from buffer: UnsafeBufferPointer<UInt8>) throws -> Self {
-        return try Self.init(serializedData: Data(
+        return try Self.init(serializedBytes: Data(
                 // NOTE: This doesn't actually mutate, which is why this is safe.
                 bytesNoCopy: UnsafeMutableRawPointer(mutating: buffer.baseAddress!),
                 count: buffer.count, deallocator: .none))

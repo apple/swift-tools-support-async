@@ -41,7 +41,7 @@ public protocol LLBCASFileTreeImportProgressStats: AnyObject {
 public extension LLBCASFileTree {
 
     /// Serialization format.
-    enum WireFormat: String, CaseIterable {
+    enum WireFormat: String, CaseIterable, Sendable {
     /// Binary encoding for directory and file data
     case binary
     /// Binary encoding with data compression applied.
@@ -56,7 +56,7 @@ public extension LLBCASFileTree {
         case compressionFailed(String)
     }
 
-    enum ImportPhase: Int, Comparable {
+    enum ImportPhase: Int, Comparable, Sendable {
         case AssemblingPaths
         case EstimatingSize
         case CheckIfUploaded
@@ -76,7 +76,7 @@ public extension LLBCASFileTree {
         }
     }
 
-    struct PreservePosixDetails {
+    struct PreservePosixDetails: Sendable {
         /// Preserve POSIX file permissions.
         public var preservePosixMode = false
 
@@ -91,7 +91,7 @@ public extension LLBCASFileTree {
     }
 
     /// Modifiers for the default behavior of the `import` call.
-    struct ImportOptions {
+    struct ImportOptions: Sendable {
         /// The serialization format for persisting the CASTrees.
         public var wireFormat: WireFormat
 
@@ -126,7 +126,7 @@ public extension LLBCASFileTree {
         /// match expectation, it is not recursed into.
         /// NB: The filter argument is an absolute path _relative to the
         /// import location_. A top level imported directory becomes "/".
-        public var pathFilter: ((String) -> Bool)?
+        public var pathFilter: (@Sendable (String) -> Bool)?
 
         /// Shared queues for operations that should be limited by mainly the
         /// data drive parallelism, network concurrency parallelism,
@@ -152,7 +152,7 @@ public extension LLBCASFileTree {
         }
     }
 
-    final class ImportProgressStats: LLBCASFileTreeImportProgressStats, CustomDebugStringConvertible {
+    final class ImportProgressStats: LLBCASFileTreeImportProgressStats, CustomDebugStringConvertible, Sendable {
 
         /// Number of plain files to import (not directories).
         let toImportFiles_ = ManagedAtomic<Int>(0)
@@ -334,7 +334,7 @@ public extension LLBCASFileTree {
 }
 
 
-private final class CASTreeImport {
+private final class CASTreeImport: Sendable {
 
     let importPath: AbsolutePath
     let options: LLBCASFileTree.ImportOptions
@@ -1212,6 +1212,8 @@ private final class CASTreeImport {
     }
 
     // NB: does .wait(), therefore only safe on BatchingFutureOperationQueue.
+    @available(*, noasync, message: "This method blocks indefinitely, don't use from 'async' or SwiftNIO EventLoops")
+    @available(*, deprecated, message: "This method blocks indefinitely and returns a future")
     private func executeWithBackpressure<T>(on queue: LLBFutureOperationQueue, loop: LLBFuturesDispatchLoop, size: Int = 1, default stopValue: T, _ body: @escaping () -> LLBFuture<T>) -> LLBFuture<T> {
         guard finalResultPromise.isCompleted == false else {
             return loop.makeSucceededFuture(stopValue)

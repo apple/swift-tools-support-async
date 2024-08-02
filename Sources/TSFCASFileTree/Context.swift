@@ -18,7 +18,7 @@ public extension Context {
 
     var fileTreeImportOptions: LLBCASFileTree.ImportOptions? {
         get {
-            guard let options = self[ObjectIdentifier(LLBCASFileTree.ImportOptions.self)] as? LLBCASFileTree.ImportOptions else {
+            guard let options = self[ObjectIdentifier(LLBCASFileTree.ImportOptions.self), as: LLBCASFileTree.ImportOptions.self] else {
                 return nil
             }
 
@@ -36,7 +36,7 @@ public extension Context {
 
     var fileTreeExportStorageBatcher: LLBBatchingFutureOperationQueue? {
         get {
-            guard let options = self[ObjectIdentifier(Self.fileTreeExportStorageBatcherKey)] as? LLBBatchingFutureOperationQueue else {
+            guard let options = self[ObjectIdentifier(Self.fileTreeExportStorageBatcherKey), as: LLBBatchingFutureOperationQueue.self] else {
                 return nil
             }
 

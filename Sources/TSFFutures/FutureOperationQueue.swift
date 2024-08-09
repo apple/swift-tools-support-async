@@ -14,56 +14,64 @@ import NIO
 
 /// A queue for future-producing operations, which limits how many can run
 /// concurrently.
-public final class LLBFutureOperationQueue {
-    /// Maximum allowed number of work items concurrently executing.
-    private var maxConcurrentOperations_: Int
-    public var maxConcurrentOperations: Int {
-        get {
-            lock.withLock { maxConcurrentOperations_ }
-        }
-        set {
-            scheduleMoreTasks {
-                maxConcurrentOperations_ = max(1, newValue)
-            }
-        }
+public final class LLBFutureOperationQueue: Sendable {
+    struct State: Sendable {
+        /// Maximum allowed number of work items concurrently executing.
+        var maxConcurrentOperations: Int
+
+        /// The number of executing futures.
+        var numExecuting = 0
+
+        /// The user-specified "shares" that are currently being processed.
+        var numSharesInFLight = 0
+
+        /// The queue of operations to run.
+        var workQueue = NIO.CircularBuffer<WorkItem>()
     }
 
-    /// Maximum allowed number of shares concurrently executing.
-    /// This option independently sets a cap on concurrency.
-    private let maxConcurrentShares: Int
-
-    /// Lock protecting state.
-    private let lock = NIOConcurrencyHelpers.NIOLock()
-
-    /// The number of executing futures.
-    private var numExecuting = 0
-
-    /// The user-specified "shares" that are currently being processed.
-    private var numSharesInFLight = 0
-
-    /// Return the number of operations currently queued.
-    public var opCount: Int {
-        lock.withLock { numExecuting + workQueue.count }
-    }
-
-    private struct WorkItem {
+    struct WorkItem {
         let loop: LLBFuturesDispatchLoop
         let share: Int
         let notifyWhenScheduled: LLBPromise<Void>?
         let run: () -> Void
     }
 
-    /// The queue of operations to run.
-    private var workQueue = NIO.CircularBuffer<WorkItem>()
+    private let state: NIOLockedValueBox<State>
+
+    /// Maximum allowed number of shares concurrently executing.
+    /// This option independently sets a cap on concurrency.
+    private let maxConcurrentShares: Int
+
+    public var maxConcurrentOperations: Int {
+        get {
+            return self.state.withLockedValue { state in
+                return state.maxConcurrentOperations
+            }
+        }
+        set {
+            self.scheduleMoreTasks { state in
+                state.maxConcurrentOperations = max(1, newValue)
+            }
+        }
+    }
+
+    /// Return the number of operations currently queued.
+    public var opCount: Int {
+        return self.state.withLockedValue { state in
+            return state.numExecuting + state.workQueue.count
+        }
+    }
 
     /// Create a new limiter which will only initiate `maxConcurrentOperations`
     /// operations simultaneously.
     public init(maxConcurrentOperations: Int, maxConcurrentShares: Int = .max) {
-        self.maxConcurrentOperations_ = max(1, maxConcurrentOperations)
+        self.state = NIOLockedValueBox(State(maxConcurrentOperations: max(1, maxConcurrentOperations)))
         self.maxConcurrentShares = max(1, maxConcurrentShares)
     }
 
     /// NB: calls wait() on a current thread, beware.
+    @available(*, noasync, message: "This method blocks indefinitely, don't use from 'async' or SwiftNIO EventLoops")
+    @available(*, deprecated, message: "This method blocks indefinitely and returns a future")
     public func enqueueWithBackpressure<T>(on loop: LLBFuturesDispatchLoop, share: Int = 1, body: @escaping () -> LLBFuture<T>) -> LLBFuture<T> {
         let scheduled = loop.makePromise(of: Void.self)
 
@@ -87,11 +95,11 @@ public final class LLBFutureOperationQueue {
         func runBody() {
             let f = body()
             f.whenComplete { _ in
-                self.scheduleMoreTasks {
-                    assert(self.numExecuting >= 1)
-                    assert(self.numSharesInFLight >= share)
-                    self.numExecuting -= 1
-                    self.numSharesInFLight -= share
+                self.scheduleMoreTasks { state in
+                    assert(state.numExecuting >= 1)
+                    assert(state.numSharesInFLight >= share)
+                    state.numExecuting -= 1
+                    state.numSharesInFLight -= share
                 }
             }
             f.cascade(to: promise)
@@ -99,33 +107,33 @@ public final class LLBFutureOperationQueue {
 
         let workItem = WorkItem(loop: loop, share: share, notifyWhenScheduled: notifyWhenScheduled, run: runBody)
 
-        self.scheduleMoreTasks {
-            workQueue.append(workItem)
+        self.scheduleMoreTasks { state in
+            state.workQueue.append(workItem)
         }
 
         return promise.futureResult
     }
 
-    private func scheduleMoreTasks(performUnderLock: () -> Void) {
+    private func scheduleMoreTasks(performUnderLock: (inout State) -> Void) {
         // Decrement our counter, and get a new item to run if available.
         typealias Item = (loop: LLBFuturesDispatchLoop, notify: LLBPromise<Void>?, run: () -> Void)
-        let toExecute: [Item] = lock.withLock {
-            performUnderLock()
+        let toExecute: [Item] = self.state.withLockedValue { state in
+            performUnderLock(&state)
 
             var scheduleItems: [Item] = []
 
             // If we have room to execute the operation,
             // do so immediately (outside the lock).
-            while numExecuting < maxConcurrentOperations_,
-                  numSharesInFLight < maxConcurrentShares {
+            while state.numExecuting < state.maxConcurrentOperations,
+                  state.numSharesInFLight < self.maxConcurrentShares {
 
                 // Schedule a new operation, if available.
-                guard let op = workQueue.popFirst() else {
+                guard let op = state.workQueue.popFirst() else {
                     break
                 }
 
-                self.numExecuting += 1
-                self.numSharesInFLight += op.share
+                state.numExecuting += 1
+                state.numSharesInFLight += op.share
                 scheduleItems.append((op.loop, op.notifyWhenScheduled, op.run))
             }
 

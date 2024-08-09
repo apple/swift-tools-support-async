@@ -22,7 +22,7 @@ case promiseLeaked
 ///     - The writer access that fulfills the promise or cancels it, getting
 ///       back indication of whether or not that operation was successful.
 ///     - The reader access that checks if the promise has been fulfilled.
-open class LLBCancellablePromise<T> {
+open class LLBCancellablePromise<T>: @unchecked /* because inheritance... */ Sendable {
     /// Underlying promise. Private to avoid messing with out outside
     /// of CancellablePromise lifecycle protection.
     private let promise: LLBPromise<T>

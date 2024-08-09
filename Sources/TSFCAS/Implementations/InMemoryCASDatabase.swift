@@ -17,21 +17,25 @@ import TSFUtility
 
 
 /// A simple in-memory implementation of the `LLBCASDatabase` protocol.
-public final class LLBInMemoryCASDatabase {
-    /// The content.
-    private var content = [LLBDataID: LLBCASObject]()
+public final class LLBInMemoryCASDatabase: Sendable {
+    struct State: Sendable {
+        /// The content.
+        var content = [LLBDataID: LLBCASObject]()
+
+        var totalDataBytes: Int = 0
+    }
+
+    private let state: NIOLockedValueBox<State> = NIOLockedValueBox(State())
 
     /// Threads capable of running futures.
-    public var group: LLBFuturesDispatchGroup
-
-    /// The lock protecting content.
-    let lock = NIOConcurrencyHelpers.NIOLock()
+    public let group: LLBFuturesDispatchGroup
 
     /// The total number of data bytes in the database (this does not include the size of refs).
     public var totalDataBytes: Int {
-        return lock.withLock { _totalDataBytes }
+        return self.state.withLockedValue { state in
+            return state.totalDataBytes
+        }
     }
-    fileprivate var _totalDataBytes: Int = 0
 
     /// Create an in-memory database.
     public init(group: LLBFuturesDispatchGroup) {
@@ -41,23 +45,23 @@ public final class LLBInMemoryCASDatabase {
     /// Delete the data in the database.
     /// Intentionally not exposed via the CASDatabase protocol.
     public func delete(_ id: LLBDataID, recursive: Bool) -> LLBFuture<Void> {
-        lock.withLockVoid {
-            unsafeDelete(id, recursive: recursive)
+        self.state.withLockedValue { state in
+            unsafeDelete(state: &state, id, recursive: recursive)
         }
         return group.next().makeSucceededFuture(())
     }
-    private func unsafeDelete(_ id: LLBDataID, recursive: Bool) {
-        guard let object = content[id] else {
+    private func unsafeDelete(state: inout State, _ id: LLBDataID, recursive: Bool) {
+        guard let object = state.content[id] else {
             return
         }
-        _totalDataBytes -= object.data.readableBytes
+        state.totalDataBytes -= object.data.readableBytes
 
         guard recursive else {
             return
         }
 
         for ref in object.refs {
-            unsafeDelete(ref, recursive: recursive)
+            unsafeDelete(state: &state, ref, recursive: recursive)
         }
     }
 }
@@ -68,12 +72,14 @@ extension LLBInMemoryCASDatabase: LLBCASDatabase {
     }
 
     public func contains(_ id: LLBDataID, _ ctx: Context) -> LLBFuture<Bool> {
-        let result = lock.withLock { self.content.index(forKey: id) != nil }
+        let result = self.state.withLockedValue { state in
+            state.content.index(forKey: id) != nil
+        }
         return group.next().makeSucceededFuture(result)
     }
 
     public func get(_ id: LLBDataID, _ ctx: Context) -> LLBFuture<LLBCASObject?> {
-        let result = lock.withLock { self.content[id] }
+        let result = self.state.withLockedValue { state in state.content[id] }
         return group.next().makeSucceededFuture(result)
     }
 
@@ -86,13 +92,13 @@ extension LLBInMemoryCASDatabase: LLBCASDatabase {
     }
 
     public func put(knownID id: LLBDataID, refs: [LLBDataID] = [], data: LLBByteBuffer, _ ctx: Context) -> LLBFuture<LLBDataID> {
-        lock.withLockVoid {
-            guard content[id] == nil else {
-                assert(content[id]?.data == data, "put data for id doesn't match")
+        self.state.withLockedValue { state in
+            guard state.content[id] == nil else {
+                assert(state.content[id]?.data == data, "put data for id doesn't match")
                 return
             }
-            _totalDataBytes += data.readableBytes
-            content[id] = LLBCASObject(refs: refs, data: data)
+            state.totalDataBytes += data.readableBytes
+            state.content[id] = LLBCASObject(refs: refs, data: data)
         }
         return group.next().makeSucceededFuture(id)
     }

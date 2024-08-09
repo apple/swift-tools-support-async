@@ -42,10 +42,10 @@ public extension Context {
 
     var group: LLBFuturesDispatchGroup {
         get {
-            guard let group = self[ObjectIdentifier(LLBFuturesDispatchGroup.self)] else {
+            guard let group = self[ObjectIdentifier(LLBFuturesDispatchGroup.self), as: LLBFuturesDispatchGroup.self] else {
                 fatalError("no futures dispatch group")
             }
-            return group as! LLBFuturesDispatchGroup
+            return group
         }
         set {
             self[ObjectIdentifier(LLBFuturesDispatchGroup.self)] = newValue

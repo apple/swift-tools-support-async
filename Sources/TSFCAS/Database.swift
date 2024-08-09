@@ -44,7 +44,7 @@ public struct LLBCASFeatures: Codable {
 /// A content-addressable database protocol
 ///
 /// THREAD-SAFETY: The database is expected to be thread-safe.
-public protocol LLBCASDatabase: AnyObject {
+public protocol LLBCASDatabase: AnyObject & Sendable {
     var group: LLBFuturesDispatchGroup { get }
 
     /// Get the supported features of this database implementation
@@ -152,10 +152,10 @@ public extension Context {
 
     var db: LLBCASDatabase {
         get {
-            guard let db = self[ObjectIdentifier(LLBCASDatabase.self)] else {
+            guard let db = self[ObjectIdentifier(LLBCASDatabase.self), as: LLBCASDatabase.self] else {
                 fatalError("no CAS database")
             }
-            return db as! LLBCASDatabase
+            return db
         }
         set {
             self[ObjectIdentifier(LLBCASDatabase.self)] = newValue

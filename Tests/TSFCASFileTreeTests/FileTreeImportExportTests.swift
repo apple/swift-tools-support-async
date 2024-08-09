@@ -64,7 +64,13 @@ class ImportExportTests: XCTestCase {
             // Export the results.
             let tmpdir2 = dir.appending(component: "second")
             try fs.createDirectory(tmpdir2)
-            try LLBCASFileTree.export(id, from: db, to: tmpdir2, ctx).wait()
+            try LLBCASFileTree.export(
+                id,
+                from: db,
+                to: tmpdir2,
+                stats: LLBCASFileTree.ExportProgressStatsInt64(),
+                ctx
+            ).wait()
 
             // Check the file was exported.
             XCTAssertEqual(try fs.readFileContents(tmpdir2.appending(component: "a.txt")), "hi")
@@ -118,7 +124,13 @@ class ImportExportTests: XCTestCase {
                 // Export the results.
                 let tmpdir2 = dir.appending(component: "second")
                 try fs.createDirectory(tmpdir2)
-                try LLBCASFileTree.export(id, from: db, to: tmpdir2, ctx).wait()
+                try LLBCASFileTree.export(
+                    id,
+                    from: db,
+                    to: tmpdir2,
+                    stats: LLBCASFileTree.ExportProgressStatsInt64(),
+                    ctx
+                ).wait()
 
                 // Check the file was exported.
                 XCTAssertEqual(try fs.readFileContents(tmpdir2.appending(component: "a.txt")), "hi")

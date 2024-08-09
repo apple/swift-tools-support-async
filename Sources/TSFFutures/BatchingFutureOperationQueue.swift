@@ -19,7 +19,7 @@ import TSCUtility
 ///     For some blocking operations (such as file system accesses) executing
 ///     them on the NIO loops is very expensive since it blocks the event
 ///     processing machinery. Here we use extra threads for such operations.
-public struct LLBBatchingFutureOperationQueue {
+public struct LLBBatchingFutureOperationQueue: Sendable {
 
     /// Threads capable of running futures.
     public let group: LLBFuturesDispatchGroup

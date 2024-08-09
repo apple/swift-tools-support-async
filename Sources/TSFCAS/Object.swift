@@ -15,7 +15,7 @@ import NIOFoundationCompat
 
 // MARK:- CASObject Definition -
 
-public struct LLBCASObject: Equatable {
+public struct LLBCASObject: Equatable, Sendable {
     /// The list of references.
     public let refs: [LLBDataID]
 
@@ -54,7 +54,7 @@ public protocol LLBCASObjectConstructable {
 
 public extension LLBCASObject {
     init(rawBytes: Data) throws {
-        let pb = try LLBPBCASObject.init(serializedData: rawBytes)
+        let pb = try LLBPBCASObject(serializedBytes: rawBytes)
         var data = LLBByteBufferAllocator().buffer(capacity: pb.data.count)
         data.writeBytes(pb.data)
         self.init(refs: pb.refs, data: data)
@@ -71,7 +71,7 @@ public extension LLBCASObject {
 extension LLBCASObject: LLBSerializable {
     public init(from rawBytes: LLBByteBuffer) throws {
         let pb = try rawBytes.withUnsafeReadableBytes {
-            try LLBPBCASObject.init(serializedData: Data(bytesNoCopy: UnsafeMutableRawPointer(mutating: $0.baseAddress!), count: $0.count, deallocator: .none))
+            try LLBPBCASObject(serializedBytes: Data(bytesNoCopy: UnsafeMutableRawPointer(mutating: $0.baseAddress!), count: $0.count, deallocator: .none))
         }
         let refs = pb.refs
         var data = LLBByteBufferAllocator().buffer(capacity: pb.data.count)

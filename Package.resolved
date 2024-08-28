@@ -6,8 +6,8 @@
         "repositoryURL": "https://github.com/apple/swift-atomics.git",
         "state": {
           "branch": null,
-          "revision": "ff3d2212b6b093db7f177d0855adbc4ef9c5f036",
-          "version": "1.0.3"
+          "revision": "cd142fd2f64be2100422d658e7411e39489da985",
+          "version": "1.2.0"
         }
       },
       {
@@ -24,8 +24,8 @@
         "repositoryURL": "https://github.com/apple/swift-nio.git",
         "state": {
           "branch": null,
-          "revision": "45167b8006448c79dda4b7bd604e07a034c15c49",
-          "version": "2.48.0"
+          "revision": "4c4453b489cf76e6b3b0f300aba663eb78182fad",
+          "version": "2.70.0"
         }
       },
       {
@@ -33,8 +33,8 @@
         "repositoryURL": "https://github.com/apple/swift-protobuf.git",
         "state": {
           "branch": null,
-          "revision": "ab3a58b7209a17d781c0d1dbb3e1ff3da306bae8",
-          "version": "1.20.3"
+          "revision": "564597ad2fe2513a94dd8f3ba27ea2ff4be3cb37",
+          "version": "1.28.0"
         }
       },
       {
@@ -42,8 +42,8 @@
         "repositoryURL": "https://github.com/apple/swift-system.git",
         "state": {
           "branch": null,
-          "revision": "836bc4557b74fe6d2660218d56e3ce96aff76574",
-          "version": "1.1.1"
+          "revision": "d2ba781702a1d8285419c15ee62fd734a9437ff5",
+          "version": "1.3.2"
         }
       },
       {
@@ -51,8 +51,8 @@
         "repositoryURL": "https://github.com/apple/swift-tools-support-core.git",
         "state": {
           "branch": null,
-          "revision": "d5f8c2bfd7bfba2a97c7c0dfb87a80e05274e978",
-          "version": "0.5.0"
+          "revision": "62ba237eda0f7ef15264ef3468ae4cda1866b7c8",
+          "version": "0.5.3"
         }
       }
     ]

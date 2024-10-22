@@ -25,7 +25,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.68.0"),
         .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.28.0"),
-        .package(url: "https://github.com/apple/swift-tools-support-core.git", "0.2.7" ..< "0.6.0"),
+        .package(url: "https://github.com/apple/swift-tools-support-core.git", "0.2.7" ..< "0.7.0"),
     ],
     targets: [
         // BLAKE3 hash support

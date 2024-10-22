@@ -3,16 +3,23 @@ import PackageDescription
 import class Foundation.ProcessInfo
 
 let macOSPlatform: SupportedPlatform
+let iOSPlatform: SupportedPlatform
 if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTTSC_MACOS_DEPLOYMENT_TARGET"] {
     macOSPlatform = .macOS(deploymentTarget)
 } else {
     macOSPlatform = .macOS(.v10_15)
 }
+if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTTSC_IOS_DEPLOYMENT_TARGET"] {
+    iOSPlatform = .iOS(deploymentTarget)
+} else {
+    iOSPlatform = .iOS(.v13)
+}
 
 let package = Package(
     name: "swift-tools-support-async",
     platforms: [
-        macOSPlatform
+        macOSPlatform,
+        iOSPlatform
     ],
     products: [
         .library(

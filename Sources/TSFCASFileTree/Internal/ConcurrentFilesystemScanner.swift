@@ -438,7 +438,7 @@ public enum FilesystemObjectType: UInt8 {
 
     /// Initialize from dirent's d_type.
     public init(d_type: UInt8) {
-#if canImport(Darwin)
+#if canImport(Darwin) || canImport(Musl)
         switch CInt(d_type) {
         case DT_UNKNOWN: self = .UNKNOWN
         case DT_FIFO: self = .FIFO

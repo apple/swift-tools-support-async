@@ -326,3 +326,7 @@ public struct LLBCASBlob {
         }
     }
 }
+
+#if swift(>=5.5) && canImport(_Concurrency)
+    extension LLBCASBlob: Sendable {}
+#endif  // swift(>=5.5) && canImport(_Concurrency)

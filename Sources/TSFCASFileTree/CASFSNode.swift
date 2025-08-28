@@ -17,7 +17,7 @@ public struct LLBCASFSNode {
         case notApplicable
     }
 
-    public enum NodeContent {
+    public enum NodeContent: Sendable {
         case tree(LLBCASFileTree)
         case blob(LLBCASBlob)
     }
@@ -80,3 +80,7 @@ public struct LLBCASFSNode {
         }
     }
 }
+
+#if swift(>=5.5) && canImport(_Concurrency)
+    extension LLBCASFSNode: Sendable {}
+#endif  // swift(>=5.5) && canImport(_Concurrency)

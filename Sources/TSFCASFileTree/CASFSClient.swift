@@ -15,7 +15,7 @@ import TSCUtility
 
 
 /// A main API struct
-public struct LLBCASFSClient {
+public struct LLBCASFSClient: Sendable {
     public let db: LLBCASDatabase
 
     /// Errors produced by CASClient

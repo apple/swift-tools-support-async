@@ -486,3 +486,6 @@ public final class LLBCASFileTree {
     }
 }
 
+#if swift(>=5.5) && canImport(_Concurrency)
+    extension LLBCASFileTree: Sendable {}
+#endif  // swift(>=5.5) && canImport(_Concurrency)

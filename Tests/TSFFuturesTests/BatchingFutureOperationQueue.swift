@@ -3,13 +3,10 @@
 //
 
 import Atomics
-import XCTest
-
 import NIO
 import NIOConcurrencyHelpers
-
 import TSFFutures
-
+import XCTest
 
 class BatchingFutureOperationQueueTests: XCTestCase {
 
@@ -20,7 +17,8 @@ class BatchingFutureOperationQueueTests: XCTestCase {
 
         let manager = LLBOrderManager(on: group.next(), timeout: .seconds(5))
 
-        var q = LLBBatchingFutureOperationQueue(name: "foo", group: group, maxConcurrentOperationCount: 1)
+        var q = LLBBatchingFutureOperationQueue(
+            name: "foo", group: group, maxConcurrentOperationCount: 1)
 
         let opsInFlight = ManagedAtomic(0)
 
@@ -66,7 +64,8 @@ class BatchingFutureOperationQueueTests: XCTestCase {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer { try! group.syncShutdownGracefully() }
 
-        let q = LLBBatchingFutureOperationQueue(name: "foo", group: group, maxConcurrentOperationCount: 1)
+        let q = LLBBatchingFutureOperationQueue(
+            name: "foo", group: group, maxConcurrentOperationCount: 1)
         q.setMaxOpCount(q.maxOpCount + 1)
         XCTAssertEqual(q.maxOpCount, 2)
     }

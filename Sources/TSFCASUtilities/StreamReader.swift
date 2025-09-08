@@ -86,10 +86,12 @@ public struct LLBCASStreamReader {
                     return self.db.group.next().makeFailedFuture(LLBCASStreamError.invalid)
                 }
 
-                let channelOpt = files.first.flatMap { $0.name.split(separator: ".").first }.flatMap { UInt8($0) }
+                let channelOpt = files.first.flatMap { $0.name.split(separator: ".").first }.flatMap
+                { UInt8($0) }
 
                 guard let channel = channelOpt,
-                      channels?.contains(channel) ?? true else {
+                    channels?.contains(channel) ?? true
+                else {
                     return self.db.group.next().makeSucceededFuture(true)
                 }
 
@@ -108,9 +110,9 @@ public struct LLBCASStreamReader {
 }
 
 // Convenience extension for default parameters.
-public extension LLBCASStreamReader {
+extension LLBCASStreamReader {
     @inlinable
-    func read(
+    public func read(
         id: LLBDataID,
         _ ctx: Context,
         readerBlock: @escaping (UInt8, LLBByteBufferView) throws -> Bool
@@ -119,7 +121,7 @@ public extension LLBCASStreamReader {
     }
 
     @inlinable
-    func read(
+    public func read(
         id: LLBDataID,
         channels: [UInt8],
         _ ctx: Context,
@@ -129,7 +131,7 @@ public extension LLBCASStreamReader {
     }
 
     @inlinable
-    func read(
+    public func read(
         id: LLBDataID,
         lastReadID: LLBDataID,
         _ ctx: Context,

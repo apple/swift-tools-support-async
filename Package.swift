@@ -1,5 +1,6 @@
 // swift-tools-version:5.5
 import PackageDescription
+
 import class Foundation.ProcessInfo
 
 let macOSPlatform: SupportedPlatform
@@ -19,7 +20,7 @@ let package = Package(
     name: "swift-tools-support-async",
     platforms: [
         macOSPlatform,
-        iOSPlatform
+        iOSPlatform,
     ],
     products: [
         .library(
@@ -32,7 +33,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.68.0"),
         .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.28.0"),
-        .package(url: "https://github.com/apple/swift-tools-support-core.git", "0.5.8" ..< "0.8.0"),
+        .package(url: "https://github.com/apple/swift-tools-support-core.git", "0.5.8"..<"0.8.0"),
     ],
     targets: [
         // BLAKE3 hash support
@@ -40,7 +41,7 @@ let package = Package(
             name: "CBLAKE3",
             dependencies: [],
             cSettings: [
-                .headerSearchPath("./"),
+                .headerSearchPath("./")
             ]
         ),
 
@@ -49,13 +50,13 @@ let package = Package(
             dependencies: [
                 .product(name: "NIO", package: "swift-nio"),
                 .product(name: "NIOFoundationCompat", package: "swift-nio"),
-                .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core")
+                .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
             ]
         ),
         .testTarget(
             name: "TSFFuturesTests",
             dependencies: [
-                "TSFFutures",
+                "TSFFutures"
             ]
         ),
         .target(
@@ -72,7 +73,7 @@ let package = Package(
             name: "TSFCAS",
             dependencies: [
                 "TSFFutures", "TSFUtility", "CBLAKE3",
-                .product(name: "SwiftProtobuf", package: "swift-protobuf")
+                .product(name: "SwiftProtobuf", package: "swift-protobuf"),
             ]
         ),
         .target(

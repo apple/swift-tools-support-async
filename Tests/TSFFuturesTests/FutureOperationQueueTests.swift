@@ -3,13 +3,10 @@
 //
 
 import Atomics
-import XCTest
-
 import NIO
 import NIOConcurrencyHelpers
-
 import TSFFutures
-
+import XCTest
 
 class FutureOperationQueueTests: XCTestCase {
     func testBasics() throws {
@@ -94,10 +91,10 @@ class FutureOperationQueueTests: XCTestCase {
                 group.next().execute {
                     p.succeed(true)
                 }
-                
+
                 return p.futureResult
             }
-            
+
             lock.withLockVoid {
                 futures.append(result)
             }

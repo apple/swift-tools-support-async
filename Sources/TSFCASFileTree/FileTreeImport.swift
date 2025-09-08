@@ -8,13 +8,11 @@
 
 import Atomics
 import Foundation
-
 import NIO
 import NIOConcurrencyHelpers
 import TSCBasic
 import TSCLibc
 import TSCUtility
-
 import TSFCAS
 
 public protocol LLBCASFileTreeImportProgressStats: AnyObject {
@@ -38,17 +36,17 @@ public protocol LLBCASFileTreeImportProgressStats: AnyObject {
     var debugDescription: String { get }
 }
 
-public extension LLBCASFileTree {
+extension LLBCASFileTree {
 
     /// Serialization format.
-    enum WireFormat: String, CaseIterable, Sendable {
-    /// Binary encoding for directory and file data
-    case binary
-    /// Binary encoding with data compression applied.
-    case compressed
+    public enum WireFormat: String, CaseIterable, Sendable {
+        /// Binary encoding for directory and file data
+        case binary
+        /// Binary encoding with data compression applied.
+        case compressed
     }
 
-    enum ImportError: Swift.Error {
+    public enum ImportError: Swift.Error {
         case unreadableDirectory(AbsolutePath)
         case unreadableLink(AbsolutePath)
         case unreadableFile(AbsolutePath)
@@ -56,7 +54,7 @@ public extension LLBCASFileTree {
         case compressionFailed(String)
     }
 
-    enum ImportPhase: Int, Comparable, Sendable {
+    public enum ImportPhase: Int, Comparable, Sendable {
         case AssemblingPaths
         case EstimatingSize
         case CheckIfUploaded
@@ -71,12 +69,12 @@ public extension LLBCASFileTree {
             return self == .ImportSucceeded || self == .ImportFailed
         }
 
-        public static func<(lhs: ImportPhase, rhs: ImportPhase) -> Bool {
+        public static func < (lhs: ImportPhase, rhs: ImportPhase) -> Bool {
             return lhs.rawValue < rhs.rawValue
         }
     }
 
-    struct PreservePosixDetails: Sendable {
+    public struct PreservePosixDetails: Sendable {
         /// Preserve POSIX file permissions.
         public var preservePosixMode = false
 
@@ -91,7 +89,7 @@ public extension LLBCASFileTree {
     }
 
     /// Modifiers for the default behavior of the `import` call.
-    struct ImportOptions: Sendable {
+    public struct ImportOptions: Sendable {
         /// The serialization format for persisting the CASTrees.
         public var wireFormat: WireFormat
 
@@ -152,7 +150,9 @@ public extension LLBCASFileTree {
         }
     }
 
-    final class ImportProgressStats: LLBCASFileTreeImportProgressStats, CustomDebugStringConvertible, Sendable {
+    public final class ImportProgressStats: LLBCASFileTreeImportProgressStats,
+        CustomDebugStringConvertible, Sendable
+    {
 
         /// Number of plain files to import (not directories).
         let toImportFiles_ = ManagedAtomic<Int>(0)
@@ -228,7 +228,7 @@ public extension LLBCASFileTree {
                 repeat {
                     let currentPhase = phase
                     guard !currentPhase.isFinalPhase else {
-                        break   // Do not change the final state.
+                        break  // Do not change the final state.
                     }
                     guard
                         !phase_.compareExchange(
@@ -236,7 +236,7 @@ public extension LLBCASFileTree {
                             ordering: .sequentiallyConsistent
                         ).0
                     else {
-                        break   // State change succeeded.
+                        break  // State change succeeded.
                     }
                     // Repeat attempt if need to set the final state.
                 } while newValue.isFinalPhase
@@ -265,7 +265,7 @@ public extension LLBCASFileTree {
                 """
         }
 
-        public init() { }
+        public init() {}
     }
 
     /// Import an entire file system subtree into a database.
@@ -278,7 +278,7 @@ public extension LLBCASFileTree {
     //
     // - FIXME: Move this to use TSC's FileSystem. For that, we need to add a
     //          way to get the contents of a symbolic link.
-    static func `import`(
+    public static func `import`(
         path importPath: AbsolutePath,
         to db: LLBCASDatabase,
         options optionsTemplate: LLBCASFileTree.ImportOptions? = nil,
@@ -299,16 +299,22 @@ public extension LLBCASFileTree {
 
         // Maximum number of outstanding db.contains and db.put operations.
         let initialNetConcurrency = 9_999
-        return LLBCASFileTree.recursivelyDecreasingLimit(on: db.group.next(), limit: initialNetConcurrency) { limit in
+        return LLBCASFileTree.recursivelyDecreasingLimit(
+            on: db.group.next(), limit: initialNetConcurrency
+        ) { limit in
             stats.reset()
-            return CASTreeImport(importPath: importPath, to: db,
-                        options: options, stats: stats,
-                        netConcurrency: limit).run(ctx)
+            return CASTreeImport(
+                importPath: importPath, to: db,
+                options: options, stats: stats,
+                netConcurrency: limit
+            ).run(ctx)
         }
     }
 
     // Retry with lesser concurrency if we see unexpected network errors.
-    private static func recursivelyDecreasingLimit<T>(on loop: LLBFuturesDispatchLoop, limit: Int, _ body: @escaping (Int) -> LLBFuture<T>) -> LLBFuture<T> {
+    private static func recursivelyDecreasingLimit<T>(
+        on loop: LLBFuturesDispatchLoop, limit: Int, _ body: @escaping (Int) -> LLBFuture<T>
+    ) -> LLBFuture<T> {
         return body(limit).flatMapError { error -> LLBFuture<T> in
             // Check if something retryable happened.
             guard case LLBCASDatabaseError.retryableNetworkError(_) = error else {
@@ -332,7 +338,6 @@ public extension LLBCASFileTree {
     }
 
 }
-
 
 private final class CASTreeImport: Sendable {
 
@@ -359,13 +364,16 @@ private final class CASTreeImport: Sendable {
                 stats.checkedObjects_.wrappingIncrement(ordering: .relaxed)
                 stats.checkedBytes_.wrappingIncrement(by: segm.uncompressedSize, ordering: .relaxed)
                 stats.checksProgressObjects_.wrappingDecrement(ordering: .relaxed)
-                stats.checksProgressBytes_.wrappingDecrement(by: segm.uncompressedSize, ordering: .relaxed)
+                stats.checksProgressBytes_.wrappingDecrement(
+                    by: segm.uncompressedSize, ordering: .relaxed)
                 return result
             }
         }
     }
 
-    func dbPut(refs: [LLBDataID], data: LLBByteBuffer, importSize: Int?, _ ctx: Context) -> LLBFuture<LLBDataID> {
+    func dbPut(refs: [LLBDataID], data: LLBByteBuffer, importSize: Int?, _ ctx: Context)
+        -> LLBFuture<LLBDataID>
+    {
         stats.uploadsProgressObjects_.wrappingIncrement(ordering: .relaxed)
         stats.uploadsProgressBytes_.wrappingIncrement(by: data.readableBytes, ordering: .relaxed)
         return _db.put(refs: refs, data: data, ctx).map { result in
@@ -374,7 +382,8 @@ private final class CASTreeImport: Sendable {
             }
             let stats = self.stats
             stats.uploadsProgressObjects_.wrappingDecrement(ordering: .relaxed)
-            stats.uploadsProgressBytes_.wrappingDecrement(by: data.readableBytes, ordering: .relaxed)
+            stats.uploadsProgressBytes_.wrappingDecrement(
+                by: data.readableBytes, ordering: .relaxed)
             stats.uploadedBytes_.wrappingIncrement(by: data.readableBytes, ordering: .relaxed)
             if let size = importSize {
                 // Objects = file objects/chunks. We only count them
@@ -392,17 +401,30 @@ private final class CASTreeImport: Sendable {
         return path.prettyPath(cwd: importPath)
     }
 
-    init(importPath: AbsolutePath, to db: LLBCASDatabase, options: LLBCASFileTree.ImportOptions, stats: LLBCASFileTree.ImportProgressStats, netConcurrency: Int) {
+    init(
+        importPath: AbsolutePath, to db: LLBCASDatabase, options: LLBCASFileTree.ImportOptions,
+        stats: LLBCASFileTree.ImportProgressStats, netConcurrency: Int
+    ) {
         let loop = db.group.next()
 
         let solidStateDriveParallelism = min(8, System.coreCount)
         let cpuBoundParallelism = System.coreCount
 
-        self.ssdQueue = options.sharedQueueSSD ?? .init(name: "ssdQueue", group: loop, maxConcurrentOperationCount: solidStateDriveParallelism)
-        self.netQueue = options.sharedQueueNetwork ?? .init(maxConcurrentOperations: netConcurrency, maxConcurrentShares: 42_000_000)
-        self.cpuQueue = options.sharedQueueCPU ?? .init(name: "cpuQueue", group: loop, maxConcurrentOperationCount: cpuBoundParallelism)
+        self.ssdQueue =
+            options.sharedQueueSSD
+            ?? .init(
+                name: "ssdQueue", group: loop,
+                maxConcurrentOperationCount: solidStateDriveParallelism)
+        self.netQueue =
+            options.sharedQueueNetwork
+            ?? .init(maxConcurrentOperations: netConcurrency, maxConcurrentShares: 42_000_000)
+        self.cpuQueue =
+            options.sharedQueueCPU
+            ?? .init(
+                name: "cpuQueue", group: loop, maxConcurrentOperationCount: cpuBoundParallelism)
 
-        self.finalResultPromise = LLBCancellablePromise(promise: loop.makePromise(of: LLBDataID.self))
+        self.finalResultPromise = LLBCancellablePromise(
+            promise: loop.makePromise(of: LLBDataID.self))
         self.options = options
         self.stats = stats
         self._db = db
@@ -436,7 +458,8 @@ private final class CASTreeImport: Sendable {
                 return path == importPath
             }
 
-            let relative = pathString.suffix(from: pathString.index(pathString.startIndex, offsetBy: importDirPrefixLength - 1))
+            let relative = pathString.suffix(
+                from: pathString.index(pathString.startIndex, offsetBy: importDirPrefixLength - 1))
 
             guard userFilter(String(relative)) else {
                 return false
@@ -464,15 +487,16 @@ private final class CASTreeImport: Sendable {
             } else {
                 // Scan the filesystem tree using multiple threads.
                 return (0..<self.ssdQueue.maxOpCount).map { _ in
-                  self.execute(on: self.ssdQueue, default: []) { () -> [ConcurrentFilesystemScanner.Element] in
-                    // Gather all the paths up front.
-                    var pathInfos = [ConcurrentFilesystemScanner.Element]()
-                    for pathInfo in scanner {
-                        pathInfos.append(pathInfo)
-                        stats.toImportObjects_.wrappingIncrement(ordering: .relaxed)
+                    self.execute(on: self.ssdQueue, default: []) {
+                        () -> [ConcurrentFilesystemScanner.Element] in
+                        // Gather all the paths up front.
+                        var pathInfos = [ConcurrentFilesystemScanner.Element]()
+                        for pathInfo in scanner {
+                            pathInfos.append(pathInfo)
+                            stats.toImportObjects_.wrappingIncrement(ordering: .relaxed)
+                        }
+                        return pathInfos
                     }
-                    return pathInfos
-                  }
                 }
             }
         }.flatMap { pathsFutures -> LLBFuture<[[ConcurrentFilesystemScanner.Element]]> in
@@ -484,8 +508,9 @@ private final class CASTreeImport: Sendable {
             return pathInfos.joined().map { pathInfo -> LLBFuture<NextStep> in
                 self.execute(on: self.ssdQueue, default: .skipped) {
                     do {
-                        switch try self.makeNextStep(path: pathInfo.path, type: pathInfo.type, ctx) {
-                        case let .execute(in: .EstimatingSize, run):
+                        switch try self.makeNextStep(path: pathInfo.path, type: pathInfo.type, ctx)
+                        {
+                        case .execute(in: .EstimatingSize, let run):
                             return NextStep.wait(in: .EstimatingSize, futures: [run()])
                         case let step:
                             return step
@@ -500,8 +525,13 @@ private final class CASTreeImport: Sendable {
             self.whenAllSucceed(nextStepFutures)
         }.flatMap { nextStepFutures -> LLBFuture<[NextStep]> in
             self.set(phase: .CheckIfUploaded)
-            return self.recursivelyPerformSteps(currentPhase: .CheckIfUploaded, currentPhaseSteps: nextStepFutures)
-        }.map { nextSteps -> (directoryPaths: [(AbsolutePath, LLBPosixFileDetails?)], completeFiles: [AbsolutePath: SingleFileInfo]) in
+            return self.recursivelyPerformSteps(
+                currentPhase: .CheckIfUploaded, currentPhaseSteps: nextStepFutures)
+        }.map {
+            nextSteps -> (
+                directoryPaths: [(AbsolutePath, LLBPosixFileDetails?)],
+                completeFiles: [AbsolutePath: SingleFileInfo]
+            ) in
             self.set(phase: .UploadingDirs)
             var completeFiles = [AbsolutePath: SingleFileInfo]()
             var directoryPaths = [(AbsolutePath, LLBPosixFileDetails?)]()
@@ -509,7 +539,7 @@ private final class CASTreeImport: Sendable {
                 switch step {
                 case .skipped, .partialFileChunk:
                     continue
-                case let .gotDirectory(path, posixDetails):
+                case .gotDirectory(let path, let posixDetails):
                     directoryPaths.append((path, posixDetails))
                 case .singleFile(let info):
                     completeFiles[info.path] = info
@@ -526,93 +556,108 @@ private final class CASTreeImport: Sendable {
 
             /// If imported a single file, return it.
             if directoryPaths.isEmpty,
-               let (_, firstFile) = completeFiles.first, completeFiles.count == 1 {
+                let (_, firstFile) = completeFiles.first, completeFiles.count == 1
+            {
                 self.set(phase: .ImportSucceeded)
                 return loop.makeSucceededFuture(firstFile.id)
             }
 
             let udpLock = NIOConcurrencyHelpers.NIOLock()
-            var uploadedDirectoryPaths_ = [AbsolutePath: LLBFuture<(LLBDataID, LLBDirectoryEntry)?>]()
+            var uploadedDirectoryPaths_ = [
+                AbsolutePath: LLBFuture<(LLBDataID, LLBDirectoryEntry)?>
+            ]()
 
             // Now we have to add all the directories; we do so serially and in
             // reverse order of depth, so we can guarantee the children are resolved
             // when they need to be.
             let dirFutures: [LLBFuture<Void>] = directoryPaths.map { arguments in
-              let (path, pathPosixDetails) = arguments
-              let dirLoop = self._db.group.next()
-              let directoryPromise: LLBPromise<(LLBDataID, LLBDirectoryEntry)?>
-              directoryPromise = dirLoop.makePromise()
-              udpLock.withLockVoid {
-                uploadedDirectoryPaths_[path] = directoryPromise.futureResult
-              }
-
-              let dirFuture: LLBFuture<(LLBDataID, LLBDirectoryEntry)?>
-              dirFuture = self.execute(on: self.netQueue, loop: dirLoop, size: 1024, default: nil) {
-                // Get the list of all subpaths.
-                let directoryListing: [String]
-                do {
-                    directoryListing = try TSCBasic.localFileSystem.getDirectoryContents(path).sorted()
-                } catch {
-                    if self.options.skipUnreadable {
-                        return dirLoop.makeSucceededFuture(nil)
-                    }
-                    return dirLoop.makeFailedFuture(ImportError.unreadableDirectory(path))
+                let (path, pathPosixDetails) = arguments
+                let dirLoop = self._db.group.next()
+                let directoryPromise: LLBPromise<(LLBDataID, LLBDirectoryEntry)?>
+                directoryPromise = dirLoop.makePromise()
+                udpLock.withLockVoid {
+                    uploadedDirectoryPaths_[path] = directoryPromise.futureResult
                 }
 
-                // Build the finalized directory file list.
-                let subpathsFutures: [LLBFuture<(LLBDataID, LLBDirectoryEntry)?>]
-                subpathsFutures = directoryListing.compactMap { filename -> LLBFuture<(LLBDataID, LLBDirectoryEntry)?> in
-                    let subpath = path.appending(component: filename)
+                let dirFuture: LLBFuture<(LLBDataID, LLBDirectoryEntry)?>
+                dirFuture = self.execute(on: self.netQueue, loop: dirLoop, size: 1024, default: nil)
+                {
+                    // Get the list of all subpaths.
+                    let directoryListing: [String]
+                    do {
+                        directoryListing = try TSCBasic.localFileSystem.getDirectoryContents(path)
+                            .sorted()
+                    } catch {
+                        if self.options.skipUnreadable {
+                            return dirLoop.makeSucceededFuture(nil)
+                        }
+                        return dirLoop.makeFailedFuture(ImportError.unreadableDirectory(path))
+                    }
 
-                    if let info = completeFiles[subpath] {
-                        var dirEntry = LLBDirectoryEntry()
-                        dirEntry.name = filename
-                        dirEntry.type = info.type
-                        dirEntry.size = info.size
-                        dirEntry.update(posixDetails: info.posixDetails, options: self.options)
-                        return dirLoop.makeSucceededFuture((info.id, dirEntry))
-                    } else if let dirInfoFuture = udpLock.withLock({uploadedDirectoryPaths_[subpath]}) {
-                        return dirInfoFuture.map { idInfo in
-                            guard let (id, info) = idInfo else { return nil }
+                    // Build the finalized directory file list.
+                    let subpathsFutures: [LLBFuture<(LLBDataID, LLBDirectoryEntry)?>]
+                    subpathsFutures = directoryListing.compactMap {
+                        filename -> LLBFuture<(LLBDataID, LLBDirectoryEntry)?> in
+                        let subpath = path.appending(component: filename)
+
+                        if let info = completeFiles[subpath] {
                             var dirEntry = LLBDirectoryEntry()
                             dirEntry.name = filename
                             dirEntry.type = info.type
                             dirEntry.size = info.size
                             dirEntry.update(posixDetails: info.posixDetails, options: self.options)
-                            return (id, dirEntry)
-                        }
-                    } else {
-                        return dirLoop.makeSucceededFuture(nil)
-                    }
-                }
-
-                return self.whenAllSucceed(subpathsFutures, on: dirLoop).flatMap { subpaths in
-                    do {
-                        let (refs, dirData, aggregateSize) = try self.constructDirectoryContents(subpaths, wireFormat: self.options.wireFormat)
-
-                        stats.toImportBytes_.wrappingIncrement(by: dirData.readableBytes, ordering: .relaxed)
-                        return self.dbPut(refs: refs, data: dirData, importSize: dirData.readableBytes, ctx).map { id in
-                            stats.uploadedMetadataBytes_.wrappingIncrement(
-                                by: dirData.readableBytes, ordering: .relaxed)
-                            var dirEntry = LLBDirectoryEntry()
-                            dirEntry.name = path.pathString
-                            dirEntry.type = .directory
-                            dirEntry.size = aggregateSize
-                            if let pd = pathPosixDetails {
-                                dirEntry.update(posixDetails: pd, options: self.options)
+                            return dirLoop.makeSucceededFuture((info.id, dirEntry))
+                        } else if let dirInfoFuture = udpLock.withLock({
+                            uploadedDirectoryPaths_[subpath]
+                        }) {
+                            return dirInfoFuture.map { idInfo in
+                                guard let (id, info) = idInfo else { return nil }
+                                var dirEntry = LLBDirectoryEntry()
+                                dirEntry.name = filename
+                                dirEntry.type = info.type
+                                dirEntry.size = info.size
+                                dirEntry.update(
+                                    posixDetails: info.posixDetails, options: self.options)
+                                return (id, dirEntry)
                             }
-                            return (id, dirEntry)
+                        } else {
+                            return dirLoop.makeSucceededFuture(nil)
                         }
-                    } catch {
-                        return loop.makeFailedFuture(error)
+                    }
+
+                    return self.whenAllSucceed(subpathsFutures, on: dirLoop).flatMap { subpaths in
+                        do {
+                            let (refs, dirData, aggregateSize) =
+                                try self.constructDirectoryContents(
+                                    subpaths, wireFormat: self.options.wireFormat)
+
+                            stats.toImportBytes_.wrappingIncrement(
+                                by: dirData.readableBytes, ordering: .relaxed)
+                            return self.dbPut(
+                                refs: refs, data: dirData, importSize: dirData.readableBytes, ctx
+                            ).map { id in
+                                stats.uploadedMetadataBytes_.wrappingIncrement(
+                                    by: dirData.readableBytes, ordering: .relaxed)
+                                var dirEntry = LLBDirectoryEntry()
+                                dirEntry.name = path.pathString
+                                dirEntry.type = .directory
+                                dirEntry.size = aggregateSize
+                                if let pd = pathPosixDetails {
+                                    dirEntry.update(posixDetails: pd, options: self.options)
+                                }
+                                return (id, dirEntry)
+                            }
+                        } catch {
+                            return loop.makeFailedFuture(error)
+                        }
                     }
                 }
-              }
-              dirFuture.cascade(to: directoryPromise)
-              return dirFuture.map({ _ in () })
+                dirFuture.cascade(to: directoryPromise)
+                return dirFuture.map({ _ in () })
             }
 
-            guard let topDirFuture = udpLock.withLock({uploadedDirectoryPaths_[importPath]}) else {
+            guard let topDirFuture = udpLock.withLock({ uploadedDirectoryPaths_[importPath] })
+            else {
                 return loop.makeFailedFuture(ImportError.unreadableDirectory(importPath))
             }
 
@@ -622,7 +667,9 @@ private final class CASTreeImport: Sendable {
                         throw ImportError.unreadableDirectory(importPath)
                     }
                     if self.options.pathFilter != nil {
-                        assert(stats.importedBytes - stats.uploadedMetadataBytes == info.size, "bytesImported: \(stats.importedBytes) != aggregateSize: \(info.size)")
+                        assert(
+                            stats.importedBytes - stats.uploadedMetadataBytes == info.size,
+                            "bytesImported: \(stats.importedBytes) != aggregateSize: \(info.size)")
                     }
                     self.set(phase: .ImportSucceeded)
                     return id
@@ -651,7 +698,10 @@ private final class CASTreeImport: Sendable {
         }
     }
 
-    func recursivelyPerformSteps(currentPhase: LLBCASFileTree.ImportPhase, currentPhaseSteps: [NextStep], nextPhaseSteps: [NextStep] = []) -> LLBFuture<[NextStep]> {
+    func recursivelyPerformSteps(
+        currentPhase: LLBCASFileTree.ImportPhase, currentPhaseSteps: [NextStep],
+        nextPhaseSteps: [NextStep] = []
+    ) -> LLBFuture<[NextStep]> {
         let loop = self.loop
         var finishedSteps = [NextStep]()
         var waitInCurrentPhase = [LLBFuture<NextStep>]()
@@ -667,9 +717,9 @@ private final class CASTreeImport: Sendable {
                 continue
             case .singleFile, .gotDirectory:
                 finishedSteps.append(step)
-            case let .execute(in: phase, run) where phase <= currentPhase:
+            case .execute(in: let phase, let run) where phase <= currentPhase:
                 waitInCurrentPhase.append(run())
-            case let .wait(in: phase, futures) where phase <= currentPhase:
+            case .wait(in: let phase, let futures) where phase <= currentPhase:
                 waitInCurrentPhase.append(contentsOf: futures)
             case .execute, .wait:
                 nextPhaseSteps.append(step)
@@ -686,15 +736,20 @@ private final class CASTreeImport: Sendable {
                     return loop.makeSucceededFuture(finishedSteps + nextPhaseSteps)
                 }
                 self.set(phase: nextPhase)
-                return self.recursivelyPerformSteps(currentPhase: nextPhase, currentPhaseSteps: nextPhaseSteps).map {
+                return self.recursivelyPerformSteps(
+                    currentPhase: nextPhase, currentPhaseSteps: nextPhaseSteps
+                ).map {
                     finishedSteps + $0
                 }
             } else {
-                return self.recursivelyPerformSteps(currentPhase: currentPhase, currentPhaseSteps: moreStepsInCurrentPhase, nextPhaseSteps: nextPhaseSteps).map {
+                return self.recursivelyPerformSteps(
+                    currentPhase: currentPhase, currentPhaseSteps: moreStepsInCurrentPhase,
+                    nextPhaseSteps: nextPhaseSteps
+                ).map {
                     finishedSteps + $0
                 }
             }
-          }
+        }
     }
 
     struct SingleFileInfo {
@@ -731,30 +786,36 @@ private final class CASTreeImport: Sendable {
 
     /// Compress segments. If some segments are not compressible, the rest
     /// of the sequence won't be compressed either.
-    func maybeCompressSegments(_ segmentsIn: [LLBFastData], allocator: LLBByteBufferAllocator) -> [AnnotatedSegment] {
+    func maybeCompressSegments(_ segmentsIn: [LLBFastData], allocator: LLBByteBufferAllocator)
+        -> [AnnotatedSegment]
+    {
         var useCompression = true
         return segmentsIn.map { segment in
-            guard useCompression, let compressedSegment = try? segment.compressed(allocator: allocator) else {
+            guard useCompression,
+                let compressedSegment = try? segment.compressed(allocator: allocator)
+            else {
                 useCompression = false
-                return AnnotatedSegment(isCompressed: false, uncompressedSize: segment.count, data: segment)
+                return AnnotatedSegment(
+                    isCompressed: false, uncompressedSize: segment.count, data: segment)
             }
-            return AnnotatedSegment(isCompressed: true, uncompressedSize: segment.count, data: compressedSegment)
+            return AnnotatedSegment(
+                isCompressed: true, uncompressedSize: segment.count, data: compressedSegment)
         }
     }
 
     indirect enum NextStep {
-    // Final step in a sequence: stop stepping through.
-    case skipped
-    // Final step: information about the file.
-    case singleFile(SingleFileInfo)
-    // Final step: information about the directory.
-    case gotDirectory(path: AbsolutePath, posixDetails: LLBPosixFileDetails?)
-    // Intermediate step: not earlier than in the given phase.
-    case execute(in: LLBCASFileTree.ImportPhase, run: () -> LLBFuture<NextStep>)
-    // This future has to be picked up in the given phase.
-    case wait(in: LLBCASFileTree.ImportPhase, futures: [LLBFuture<NextStep>])
-    // Intermediate result.
-    case partialFileChunk(LLBDataID)
+        // Final step in a sequence: stop stepping through.
+        case skipped
+        // Final step: information about the file.
+        case singleFile(SingleFileInfo)
+        // Final step: information about the directory.
+        case gotDirectory(path: AbsolutePath, posixDetails: LLBPosixFileDetails?)
+        // Intermediate step: not earlier than in the given phase.
+        case execute(in: LLBCASFileTree.ImportPhase, run: () -> LLBFuture<NextStep>)
+        // This future has to be picked up in the given phase.
+        case wait(in: LLBCASFileTree.ImportPhase, futures: [LLBFuture<NextStep>])
+        // Intermediate result.
+        case partialFileChunk(LLBDataID)
     }
 
     func describeAllSegments(of file: FileSegmenter, _ ctx: Context) throws -> [SegmentDescriptor] {
@@ -779,22 +840,32 @@ private final class CASTreeImport: Sendable {
             }
 
             var useCompression: Bool
-            if case .compressed = options.wireFormat, file.size > 1024, !file.path.looksLikeCompressed, options.compressBufferAllocator != nil {
+            if case .compressed = options.wireFormat, file.size > 1024,
+                !file.path.looksLikeCompressed, options.compressBufferAllocator != nil
+            {
                 useCompression = true
             } else {
                 useCompression = false
             }
 
             let segment: AnnotatedSegment
-            if useCompression, let compressedSegment = try? data.compressed(allocator: options.compressBufferAllocator!) {
+            if useCompression,
+                let compressedSegment = try? data.compressed(
+                    allocator: options.compressBufferAllocator!)
+            {
 
-                segment = AnnotatedSegment(isCompressed: true, uncompressedSize: data.count, data: compressedSegment)
+                segment = AnnotatedSegment(
+                    isCompressed: true, uncompressedSize: data.count, data: compressedSegment)
             } else {
                 useCompression = false
-                segment = AnnotatedSegment(isCompressed: false, uncompressedSize: data.count, data: data)
+                segment = AnnotatedSegment(
+                    isCompressed: false, uncompressedSize: data.count, data: data)
             }
 
-            descriptions.append(.init(of: segment, id: _db.identify(refs: [], data: segment.data.toByteBuffer(), ctx)))
+            descriptions.append(
+                .init(
+                    of: segment, id: _db.identify(refs: [], data: segment.data.toByteBuffer(), ctx))
+            )
             if isEOF {
                 break
             }
@@ -803,7 +874,9 @@ private final class CASTreeImport: Sendable {
         return descriptions
     }
 
-    func prepareSingleSegment(of file: FileSegmenter, segmentNumber: Int, useCompression: Bool) throws -> LLBFastData {
+    func prepareSingleSegment(of file: FileSegmenter, segmentNumber: Int, useCompression: Bool)
+        throws -> LLBFastData
+    {
 
         let rawData: LLBFastData
         // Any error from fetchSegment in this function is a .modifiedFile
@@ -828,7 +901,9 @@ private final class CASTreeImport: Sendable {
         return try rawData.compressed(allocator: options.compressBufferAllocator!)
     }
 
-    func makeNextStep(path: AbsolutePath, type pathObjectType: FilesystemObjectType, _ ctx: Context) throws -> NextStep {
+    func makeNextStep(path: AbsolutePath, type pathObjectType: FilesystemObjectType, _ ctx: Context)
+        throws -> NextStep
+    {
         let loop = self.loop
         let stats = self.stats
 
@@ -863,10 +938,14 @@ private final class CASTreeImport: Sendable {
             }
             type = .symlink
 
-            let target = LLBFastData(buf[..<count].map{ UInt8(bitPattern: $0) })
+            let target = LLBFastData(buf[..<count].map { UInt8(bitPattern: $0) })
             allSegmentsUncompressedDataSize = target.count
             importObject = .link(target: target)
-            segmentDescriptors = [SegmentDescriptor(isCompressed: false, uncompressedSize: target.count, id: _db.identify(refs: [], data: target.toByteBuffer(), ctx))]
+            segmentDescriptors = [
+                SegmentDescriptor(
+                    isCompressed: false, uncompressedSize: target.count,
+                    id: _db.identify(refs: [], data: target.toByteBuffer(), ctx))
+            ]
         case .DIR:
             let posixDetails: LLBPosixFileDetails?
 
@@ -887,7 +966,10 @@ private final class CASTreeImport: Sendable {
         case .REG:
             let file: FileSegmenter
             do {
-                file = try FileSegmenter(importPath: importPath, path, segmentSize: options.fileChunkSize, minMmapSize: options.minMmapSize, allowInconsistency: options.relaxConsistencyChecks)
+                file = try FileSegmenter(
+                    importPath: importPath, path, segmentSize: options.fileChunkSize,
+                    minMmapSize: options.minMmapSize,
+                    allowInconsistency: options.relaxConsistencyChecks)
             } catch {
                 guard options.skipUnreadable else {
                     throw ImportError.unreadableFile(path)
@@ -907,8 +989,10 @@ private final class CASTreeImport: Sendable {
 
         // Add the rest of the chunks to the number of objects to import.
         stats.toImportObjects_.wrappingIncrement(
-            by: max(0, allSegmentsUncompressedDataSize - 1) / options.fileChunkSize, ordering: .relaxed)
-        stats.toImportBytes_.wrappingIncrement(by: allSegmentsUncompressedDataSize, ordering: .relaxed)
+            by: max(0, allSegmentsUncompressedDataSize - 1) / options.fileChunkSize,
+            ordering: .relaxed)
+        stats.toImportBytes_.wrappingIncrement(
+            by: allSegmentsUncompressedDataSize, ordering: .relaxed)
         stats.toImportFiles_.wrappingIncrement(ordering: .relaxed)
 
         // We check if the remote contains the object before ingesting.
@@ -927,206 +1011,263 @@ private final class CASTreeImport: Sendable {
         let topLevel = isSingleChunk && importPath == path
 
         func assemblePartialNextSteps() -> [LLBFuture<NextStep>] {
-          let cheapNextAndPartialStepFutures: [(nextStepFuture: LLBFuture<NextStep>, partialStepFuture: LLBFuture<NextStep>)] = segmentDescriptors.enumerated().map { (segmentOffset, segm) in
+            let cheapNextAndPartialStepFutures:
+                [(nextStepFuture: LLBFuture<NextStep>, partialStepFuture: LLBFuture<NextStep>)] =
+                    segmentDescriptors.enumerated().map { (segmentOffset, segm) in
 
-              // This partial step is a final step for the sequence
-              // of cheap/heavy steps, for a single segment (chunk).
-              // We use cancellable promise since our heavy next steps might
-              // not even run at all.
-              let partialStepPromise = LLBCancellablePromise(promise: loop.makePromise(of: NextStep.self))
+                        // This partial step is a final step for the sequence
+                        // of cheap/heavy steps, for a single segment (chunk).
+                        // We use cancellable promise since our heavy next steps might
+                        // not even run at all.
+                        let partialStepPromise = LLBCancellablePromise(
+                            promise: loop.makePromise(of: NextStep.self))
 
-              func encodeNextStep(for id: LLBDataID) -> NextStep {
-                if isSingleChunk {
-                    return .singleFile(SingleFileInfo(path: path, id: id, type: type, size: UInt64(clamping: segm.uncompressedSize), posixDetails: importObject.posixDetails))
-                } else {
-                    return .partialFileChunk(id)
-                }
-              }
-
-              // If the file has non-standard layout, upload it after we upload
-              // the binary blob.
-              func uploadFileInfo(blobId: LLBDataID, importSize: Int? = nil) -> LLBFuture<NextStep> {
-                guard finalResultPromise.isCompleted == false else {
-                    return loop.makeSucceededFuture(NextStep.skipped)
-                }
-
-                // We need to wrap the blob in a `FileInformation`:
-                // — When we compress the file.
-                // — When the file is top level (importing a single file).
-                guard segm.isCompressed || topLevel else {
-                    if let size = importSize {
-                        stats.importedObjects_.wrappingIncrement(ordering: .relaxed)
-                        stats.importedBytes_.wrappingIncrement(by: size, ordering: .relaxed)
-                    }
-                    return loop.makeSucceededFuture(encodeNextStep(for: blobId))
-                }
-
-                var fileInfo = LLBFileInfo()
-                // Each segment (if not a single segment) is encoded as a plain
-                // file and doesn't have any other metadata (e.g. permissions).
-                if isSingleChunk {
-                    fileInfo.type = type
-                    fileInfo.update(posixDetails: importObject.posixDetails, options: self.options)
-                } else {
-                    fileInfo.type = .plainFile
-                }
-                fileInfo.size = UInt64(segm.uncompressedSize)
-                // FIXME: no compression supported right now
-                // fileInfo.compression = segm.isCompressed ? ... : .none
-                assert(!segm.isCompressed)
-                fileInfo.compression = .none
-                fileInfo.fixedChunkSize = UInt64(segm.uncompressedSize)
-                do {
-                    return dbPut(refs: [blobId], data: try fileInfo.toBytes(), importSize: importSize, ctx).map { id in
-                        encodeNextStep(for: id)
-                    }
-                } catch {
-                    return loop.makeFailedFuture(error)
-                }
-              }
-
-              let containsRequestWireSizeEstimate = 64
-
-              let throttledContainsFuture = self.execute(on: self.netQueue, size: containsRequestWireSizeEstimate, default: .skipped) { () -> LLBFuture<NextStep> in
-                let containsFuture = self.dbContains(segm, ctx)
-                let containsLoop = containsFuture.eventLoop
-                return containsFuture.flatMap { exists -> LLBFuture<NextStep> in
-
-                  guard !exists else {
-                    let existingIdFuture: LLBFuture<NextStep> = segm.id.flatMap { id in
-                        return uploadFileInfo(blobId: id, importSize: segm.uncompressedSize)
-                    }
-                    existingIdFuture.cascade(to: partialStepPromise)
-                    return existingIdFuture
-                  }
-
-                  return containsLoop.makeSucceededFuture(NextStep.execute(in: .UploadingFiles, run: {
-                    let nextStepFuture: LLBFuture<NextStep> = self.execute(on: self.cpuQueue, default: nil) { () -> LLBFuture<NextStep>? in
-                        let data: LLBFastData
-
-                        switch importObject {
-                        case let .link(target):
-                            data = target
-                        case let .file(file, _):
-                            data = try self.prepareSingleSegment(of: file, segmentNumber: segmentOffset, useCompression: segm.isCompressed)
+                        func encodeNextStep(for id: LLBDataID) -> NextStep {
+                            if isSingleChunk {
+                                return .singleFile(
+                                    SingleFileInfo(
+                                        path: path, id: id, type: type,
+                                        size: UInt64(clamping: segm.uncompressedSize),
+                                        posixDetails: importObject.posixDetails))
+                            } else {
+                                return .partialFileChunk(id)
+                            }
                         }
 
-                        let slice = data.toByteBuffer()
+                        // If the file has non-standard layout, upload it after we upload
+                        // the binary blob.
+                        func uploadFileInfo(blobId: LLBDataID, importSize: Int? = nil) -> LLBFuture<
+                            NextStep
+                        > {
+                            guard finalResultPromise.isCompleted == false else {
+                                return loop.makeSucceededFuture(NextStep.skipped)
+                            }
 
-                        // Make sure we want until the netQueue is sufficiently
-                        // free to take our load. This ensures that we're not
-                        // limited by CPU parallelism for network concurrency.
-                        return self.executeWithBackpressure(on: self.netQueue, loop: containsLoop, size: slice.readableBytes, default: .skipped) { () -> LLBFuture<NextStep> in
-                            return self.dbPut(refs: [], data: slice, importSize: segm.uncompressedSize, ctx).flatMap { id -> LLBFuture<NextStep> in
-                                withExtendedLifetime(importObject) { // for mmap
-                                    uploadFileInfo(blobId: id)
+                            // We need to wrap the blob in a `FileInformation`:
+                            // — When we compress the file.
+                            // — When the file is top level (importing a single file).
+                            guard segm.isCompressed || topLevel else {
+                                if let size = importSize {
+                                    stats.importedObjects_.wrappingIncrement(ordering: .relaxed)
+                                    stats.importedBytes_.wrappingIncrement(
+                                        by: size, ordering: .relaxed)
                                 }
-                            }.map { result in
-                                return result
-                            }.hop(to: loop)
+                                return loop.makeSucceededFuture(encodeNextStep(for: blobId))
+                            }
+
+                            var fileInfo = LLBFileInfo()
+                            // Each segment (if not a single segment) is encoded as a plain
+                            // file and doesn't have any other metadata (e.g. permissions).
+                            if isSingleChunk {
+                                fileInfo.type = type
+                                fileInfo.update(
+                                    posixDetails: importObject.posixDetails, options: self.options)
+                            } else {
+                                fileInfo.type = .plainFile
+                            }
+                            fileInfo.size = UInt64(segm.uncompressedSize)
+                            // FIXME: no compression supported right now
+                            // fileInfo.compression = segm.isCompressed ? ... : .none
+                            assert(!segm.isCompressed)
+                            fileInfo.compression = .none
+                            fileInfo.fixedChunkSize = UInt64(segm.uncompressedSize)
+                            do {
+                                return dbPut(
+                                    refs: [blobId], data: try fileInfo.toBytes(),
+                                    importSize: importSize, ctx
+                                ).map { id in
+                                    encodeNextStep(for: id)
+                                }
+                            } catch {
+                                return loop.makeFailedFuture(error)
+                            }
                         }
-                    }.flatMap {
-                        // This type of return ensures that cpuQueue does not
-                        // wait for the netQueue operation to complete.
-                        $0 ?? loop.makeSucceededFuture(NextStep.skipped)
+
+                        let containsRequestWireSizeEstimate = 64
+
+                        let throttledContainsFuture = self.execute(
+                            on: self.netQueue, size: containsRequestWireSizeEstimate,
+                            default: .skipped
+                        ) { () -> LLBFuture<NextStep> in
+                            let containsFuture = self.dbContains(segm, ctx)
+                            let containsLoop = containsFuture.eventLoop
+                            return containsFuture.flatMap { exists -> LLBFuture<NextStep> in
+
+                                guard !exists else {
+                                    let existingIdFuture: LLBFuture<NextStep> = segm.id.flatMap {
+                                        id in
+                                        return uploadFileInfo(
+                                            blobId: id, importSize: segm.uncompressedSize)
+                                    }
+                                    existingIdFuture.cascade(to: partialStepPromise)
+                                    return existingIdFuture
+                                }
+
+                                return containsLoop.makeSucceededFuture(
+                                    NextStep.execute(
+                                        in: .UploadingFiles,
+                                        run: {
+                                            let nextStepFuture: LLBFuture<NextStep> = self.execute(
+                                                on: self.cpuQueue, default: nil
+                                            ) { () -> LLBFuture<NextStep>? in
+                                                let data: LLBFastData
+
+                                                switch importObject {
+                                                case .link(let target):
+                                                    data = target
+                                                case .file(let file, _):
+                                                    data = try self.prepareSingleSegment(
+                                                        of: file, segmentNumber: segmentOffset,
+                                                        useCompression: segm.isCompressed)
+                                                }
+
+                                                let slice = data.toByteBuffer()
+
+                                                // Make sure we want until the netQueue is sufficiently
+                                                // free to take our load. This ensures that we're not
+                                                // limited by CPU parallelism for network concurrency.
+                                                return self.executeWithBackpressure(
+                                                    on: self.netQueue, loop: containsLoop,
+                                                    size: slice.readableBytes, default: .skipped
+                                                ) { () -> LLBFuture<NextStep> in
+                                                    return self.dbPut(
+                                                        refs: [], data: slice,
+                                                        importSize: segm.uncompressedSize, ctx
+                                                    ).flatMap { id -> LLBFuture<NextStep> in
+                                                        withExtendedLifetime(importObject) {  // for mmap
+                                                            uploadFileInfo(blobId: id)
+                                                        }
+                                                    }.map { result in
+                                                        return result
+                                                    }.hop(to: loop)
+                                                }
+                                            }.flatMap {
+                                                // This type of return ensures that cpuQueue does not
+                                                // wait for the netQueue operation to complete.
+                                                $0 ?? loop.makeSucceededFuture(NextStep.skipped)
+                                            }
+                                            nextStepFuture.cascade(to: partialStepPromise)
+                                            return nextStepFuture
+                                        }))
+                            }
+                        }
+
+                        return (
+                            nextStepFuture: throttledContainsFuture,
+                            partialStepFuture: partialStepPromise.futureResult
+                        )
                     }
-                    nextStepFuture.cascade(to: partialStepPromise)
-                    return nextStepFuture
-                  }))
-                }
-              }
 
-              return (nextStepFuture: throttledContainsFuture, partialStepFuture: partialStepPromise.futureResult)
-          }
+            let cheapNextStepFutures: [LLBFuture<NextStep>] = cheapNextAndPartialStepFutures.map {
+                $0.nextStepFuture
+            }
 
-          let cheapNextStepFutures: [LLBFuture<NextStep>] = cheapNextAndPartialStepFutures.map { $0.nextStepFuture }
+            // Sending a single segment, for which we don't need
+            // to wait until all of its subcomponents are uploaded.
+            guard isSingleChunk == false else {
+                return cheapNextStepFutures
+            }
 
-          // Sending a single segment, for which we don't need
-          // to wait until all of its subcomponents are uploaded.
-          guard isSingleChunk == false else {
-            return cheapNextStepFutures
-          }
+            let partialStepFutures = cheapNextAndPartialStepFutures.map { $0.partialStepFuture }
+            let combinePartialResultsStep: NextStep = NextStep.execute(
+                in: .UploadingWait,
+                run: {
+                    return self.whenAllSucceed(partialStepFutures).flatMapErrorThrowing {
+                        error -> [NextStep] in
+                        // If ready any segment fails with something, we either forward
+                        // the error or hide it.
 
-          let partialStepFutures = cheapNextAndPartialStepFutures.map { $0.partialStepFuture }
-          let combinePartialResultsStep: NextStep = NextStep.execute(in: .UploadingWait, run: {
-            return self.whenAllSucceed(partialStepFutures).flatMapErrorThrowing { error -> [NextStep] in
-                // If ready any segment fails with something, we either forward
-                // the error or hide it.
+                        if error is FileSystemError {
+                            // Some kind of filesystem access error.
+                            if self.options.skipUnreadable {
+                                return []
+                            }
+                        } else if let fsError = error as? FileSegmenter.Error {
+                            if case .resourceChanged = fsError {
+                                if self.options.relaxConsistencyChecks {
+                                    // Turn consistency checks errors into skips.
+                                    // Location /EC1.
+                                    return []
+                                }
+                            }
+                        } else if error is FileSystemError {
+                            if self.options.skipUnreadable {
+                                // Not a consistency error, hide it.
+                                return []
+                            }
+                        }
 
-                if error is FileSystemError {
-                    // Some kind of filesystem access error.
-                    if self.options.skipUnreadable {
-                        return []
-                    }
-                } else if let fsError = error as? FileSegmenter.Error {
-                    if case .resourceChanged = fsError {
-                        if self.options.relaxConsistencyChecks {
-                            // Turn consistency checks errors into skips.
-                            // Location /EC1.
-                            return []
+                        throw error
+
+                    }.flatMap { nextSteps in
+                        // The next steps can only be empty if we've reacting on
+                        // a filesystem-related error with some of our chunks.
+                        guard nextSteps.isEmpty == false else {
+                            return loop.makeSucceededFuture(.skipped)
+                        }
+
+                        let chunkIds: [LLBDataID] = nextSteps.map {
+                            guard case .partialFileChunk(let id) = $0 else {
+                                preconditionFailure("Next step is not a partial chunk")
+                            }
+                            return id
+                        }
+
+                        var fileInfo = LLBFileInfo()
+                        fileInfo.type = type
+                        fileInfo.size = UInt64(allSegmentsUncompressedDataSize)
+                        // The top is not compressed when chunks are present.
+                        fileInfo.compression = .none
+                        fileInfo.fixedChunkSize = UInt64(
+                            chunkIds.count > 1
+                                ? self.options.fileChunkSize : allSegmentsUncompressedDataSize)
+                        let posixDetails = importObject.posixDetails
+                        fileInfo.update(posixDetails: posixDetails, options: self.options)
+                        do {
+                            let fileInfoBytes = try fileInfo.toBytes()
+                            return self.execute(
+                                on: self.netQueue, size: fileInfoBytes.readableBytes,
+                                default: .skipped
+                            ) {
+                                self.dbPut(
+                                    refs: chunkIds, data: fileInfoBytes, importSize: nil, ctx
+                                ).map { id in
+                                    return .singleFile(
+                                        SingleFileInfo(
+                                            path: path, id: id, type: type,
+                                            size: UInt64(clamping: allSegmentsUncompressedDataSize),
+                                            posixDetails: posixDetails))
+                                }
+                            }
+                        } catch {
+                            return loop.makeFailedFuture(error)
                         }
                     }
-                } else if error is FileSystemError {
-                    if self.options.skipUnreadable {
-                        // Not a consistency error, hide it.
-                        return []
-                    }
-                }
+                })
 
-                throw error
-
-              }.flatMap { nextSteps in
-                // The next steps can only be empty if we've reacting on
-                // a filesystem-related error with some of our chunks.
-                guard nextSteps.isEmpty == false else {
-                    return loop.makeSucceededFuture(.skipped)
-                }
-
-                let chunkIds: [LLBDataID] = nextSteps.map {
-                    guard case let .partialFileChunk(id) = $0 else {
-                        preconditionFailure("Next step is not a partial chunk")
-                    }
-                    return id
-                }
-
-                var fileInfo = LLBFileInfo()
-                fileInfo.type = type
-                fileInfo.size = UInt64(allSegmentsUncompressedDataSize)
-                // The top is not compressed when chunks are present.
-                fileInfo.compression = .none
-                fileInfo.fixedChunkSize = UInt64(chunkIds.count > 1 ? self.options.fileChunkSize : allSegmentsUncompressedDataSize)
-                let posixDetails = importObject.posixDetails
-                fileInfo.update(posixDetails: posixDetails, options: self.options)
-                do {
-                    let fileInfoBytes = try fileInfo.toBytes()
-                    return self.execute(on: self.netQueue, size: fileInfoBytes.readableBytes, default: .skipped) {
-                        self.dbPut(refs: chunkIds, data: fileInfoBytes, importSize: nil, ctx).map { id in
-                            return .singleFile(SingleFileInfo(path: path, id: id, type: type, size: UInt64(clamping: allSegmentsUncompressedDataSize), posixDetails: posixDetails))
-                        }
-                    }
-                } catch {
-                    return loop.makeFailedFuture(error)
-                }
-              }
-            })
-
-          // Since uploading fragmented files requires waiting and churning
-          // the recursive next step machinery until the parts are properly
-          // uploaded, we can't just block on waiting until all the chunks
-          // have been uploaded. Therefore we wait for the huge files in
-          // its own state, .UploadingWait.
-          return cheapNextStepFutures + [loop.makeSucceededFuture(combinePartialResultsStep)]
+            // Since uploading fragmented files requires waiting and churning
+            // the recursive next step machinery until the parts are properly
+            // uploaded, we can't just block on waiting until all the chunks
+            // have been uploaded. Therefore we wait for the huge files in
+            // its own state, .UploadingWait.
+            return cheapNextStepFutures + [loop.makeSucceededFuture(combinePartialResultsStep)]
         }
 
         // When the .EstimatingSize phase comes, this can be executed.
-        return .execute(in: .EstimatingSize, run: {
-            loop.makeSucceededFuture(NextStep.wait(in: .CheckIfUploaded,
-                futures: assemblePartialNextSteps()))
-        })
+        return .execute(
+            in: .EstimatingSize,
+            run: {
+                loop.makeSucceededFuture(
+                    NextStep.wait(
+                        in: .CheckIfUploaded,
+                        futures: assemblePartialNextSteps()))
+            })
     }
 
     /// Construct the bytes representing the directory contents.
-        func constructDirectoryContents(_ subpaths: [(LLBDataID, LLBDirectoryEntry)?], wireFormat: LLBCASFileTree.WireFormat) throws -> (refs: [LLBDataID], dirData: LLBByteBuffer, aggregateSize: UInt64) {
+    func constructDirectoryContents(
+        _ subpaths: [(LLBDataID, LLBDirectoryEntry)?], wireFormat: LLBCASFileTree.WireFormat
+    ) throws -> (refs: [LLBDataID], dirData: LLBByteBuffer, aggregateSize: UInt64) {
         var refs = [LLBDataID]()
         let dirData: LLBByteBuffer
         var aggregateSize: UInt64 = 0
@@ -1158,7 +1299,9 @@ private final class CASTreeImport: Sendable {
         return (refs, dirData, aggregateSize)
     }
 
-    private func whenAllSucceed<Value>(_ futures: [LLBFuture<Value>], on loop: LLBFuturesDispatchLoop? = nil) -> LLBFuture<[Value]> {
+    private func whenAllSucceed<Value>(
+        _ futures: [LLBFuture<Value>], on loop: LLBFuturesDispatchLoop? = nil
+    ) -> LLBFuture<[Value]> {
         let loop = loop ?? self.loop
         guard finalResultPromise.isCompleted == false else {
             return loop.makeSucceededFuture([])
@@ -1176,7 +1319,10 @@ private final class CASTreeImport: Sendable {
 
     /// Enqueue the callback unless the stop flag is in action.
     /// If stop flag is set, return the value specified in `then`.
-    private func execute<T>(on queue: LLBBatchingFutureOperationQueue, default stopValue: T, _ body: @escaping () throws -> T) -> LLBFuture<T> {
+    private func execute<T>(
+        on queue: LLBBatchingFutureOperationQueue, default stopValue: T,
+        _ body: @escaping () throws -> T
+    ) -> LLBFuture<T> {
         guard finalResultPromise.isCompleted == false else {
             return queue.group.next().makeSucceededFuture(stopValue)
         }
@@ -1195,7 +1341,10 @@ private final class CASTreeImport: Sendable {
 
     /// Enqueue the callback unless the stop flag is in action.
     /// If stop flag is set, return the value specified in `then`.
-    private func execute<T>(on queue: LLBFutureOperationQueue, loop: EventLoop? = nil, size: Int = 1, default stopValue: T, _ body: @escaping () -> LLBFuture<T>) -> LLBFuture<T> {
+    private func execute<T>(
+        on queue: LLBFutureOperationQueue, loop: EventLoop? = nil, size: Int = 1,
+        default stopValue: T, _ body: @escaping () -> LLBFuture<T>
+    ) -> LLBFuture<T> {
         let loop = loop ?? self.loop
         guard finalResultPromise.isCompleted == false else {
             return loop.makeSucceededFuture(stopValue)
@@ -1212,9 +1361,15 @@ private final class CASTreeImport: Sendable {
     }
 
     // NB: does .wait(), therefore only safe on BatchingFutureOperationQueue.
-    @available(*, noasync, message: "This method blocks indefinitely, don't use from 'async' or SwiftNIO EventLoops")
+    @available(
+        *, noasync,
+        message: "This method blocks indefinitely, don't use from 'async' or SwiftNIO EventLoops"
+    )
     @available(*, deprecated, message: "This method blocks indefinitely and returns a future")
-    private func executeWithBackpressure<T>(on queue: LLBFutureOperationQueue, loop: LLBFuturesDispatchLoop, size: Int = 1, default stopValue: T, _ body: @escaping () -> LLBFuture<T>) -> LLBFuture<T> {
+    private func executeWithBackpressure<T>(
+        on queue: LLBFutureOperationQueue, loop: LLBFuturesDispatchLoop, size: Int = 1,
+        default stopValue: T, _ body: @escaping () -> LLBFuture<T>
+    ) -> LLBFuture<T> {
         guard finalResultPromise.isCompleted == false else {
             return loop.makeSucceededFuture(stopValue)
         }
@@ -1240,7 +1395,7 @@ extension LLBFastData {
 extension LLBFastData {
     internal func toByteBuffer() -> LLBByteBuffer {
         switch self {
-        case let .view(data):
+        case .view(let data):
             return data
         case .slice, .data, .pointer:
             var buffer = LLBByteBufferAllocator().buffer(capacity: count)
@@ -1251,8 +1406,6 @@ extension LLBFastData {
         }
     }
 }
-
-
 
 extension AbsolutePath {
     // Don't bother compressing compressed content.
@@ -1274,7 +1427,9 @@ extension AbsolutePath {
 extension LLBPosixFileDetails {
     /// Return details only if details are not entirely predictable
     /// from file type and other context.
-    func normalized(expectedMode: mode_t, options: LLBCASFileTree.ImportOptions?) -> LLBPosixFileDetails? {
+    func normalized(expectedMode: mode_t, options: LLBCASFileTree.ImportOptions?)
+        -> LLBPosixFileDetails?
+    {
 
         var details = self
         if options?.preservePosixDetails.preservePosixMode == false {
@@ -1300,8 +1455,11 @@ extension LLBPosixFileDetails {
 
 extension LLBFileInfo {
 
-    mutating func update(posixDetails: LLBPosixFileDetails, options: LLBCASFileTree.ImportOptions?) {
-        if let details = posixDetails.normalized(expectedMode: type.expectedPosixMode, options: options) {
+    mutating func update(posixDetails: LLBPosixFileDetails, options: LLBCASFileTree.ImportOptions?)
+    {
+        if let details = posixDetails.normalized(
+            expectedMode: type.expectedPosixMode, options: options)
+        {
             self.posixDetails = details
         } else {
             self.clearPosixDetails()
@@ -1312,8 +1470,12 @@ extension LLBFileInfo {
 
 extension LLBDirectoryEntry {
 
-    public mutating func update(posixDetails: LLBPosixFileDetails, options: LLBCASFileTree.ImportOptions?) {
-        if let details = posixDetails.normalized(expectedMode: type.expectedPosixMode, options: options) {
+    public mutating func update(
+        posixDetails: LLBPosixFileDetails, options: LLBCASFileTree.ImportOptions?
+    ) {
+        if let details = posixDetails.normalized(
+            expectedMode: type.expectedPosixMode, options: options)
+        {
             self.posixDetails = details
         } else {
             self.clearPosixDetails()

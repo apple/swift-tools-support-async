@@ -8,10 +8,8 @@
 
 import Atomics
 import Foundation
-
-import TSCBasic
 import NIOConcurrencyHelpers
-
+import TSCBasic
 
 /// FileSegmenter is to facilitate slicing the file into fixed chunks
 /// in a way that optimizes for memory and file descriptors' usage
@@ -50,7 +48,7 @@ internal final class FileSegmenter {
     }
 
     internal enum Error: Swift.Error {
-    case resourceChanged(reason: String)
+        case resourceChanged(reason: String)
     }
 
     private enum ConsistencyStatus: CustomStringConvertible {
@@ -87,20 +85,21 @@ internal final class FileSegmenter {
             return .Replaced
         }
 
-#if canImport(Darwin)
-        let isSameMtime =
-            statInfo.st_mtimespec.tv_nsec == other.st_mtimespec.tv_nsec
-            && statInfo.st_mtimespec.tv_sec == other.st_mtimespec.tv_sec
-#else
-        let isSameMtime =
-            statInfo.st_mtim.tv_nsec == other.st_mtim.tv_nsec
-            && statInfo.st_mtim.tv_sec == other.st_mtim.tv_sec
-#endif
+        #if canImport(Darwin)
+            let isSameMtime =
+                statInfo.st_mtimespec.tv_nsec == other.st_mtimespec.tv_nsec
+                && statInfo.st_mtimespec.tv_sec == other.st_mtimespec.tv_sec
+        #else
+            let isSameMtime =
+                statInfo.st_mtim.tv_nsec == other.st_mtim.tv_nsec
+                && statInfo.st_mtim.tv_sec == other.st_mtim.tv_sec
+        #endif
 
-        let isSame = (isSameMtime
-            && statInfo.st_size == other.st_size
-            && statInfo.st_dev == other.st_dev
-            && statInfo.st_ino == other.st_ino)
+        let isSame =
+            (isSameMtime
+                && statInfo.st_size == other.st_size
+                && statInfo.st_dev == other.st_dev
+                && statInfo.st_ino == other.st_ino)
 
         guard isSame else {
             return .Modified(reason: "oldStat: \(statInfo) != newStat: \(other)")
@@ -111,7 +110,10 @@ internal final class FileSegmenter {
 
     /// When to mmap files:
     /// https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemAdvancedPT/MappingFilesIntoMemory/MappingFilesIntoMemory.html#//apple_ref/doc/uid/TP40010765-CH2-SW1
-    init(importPath: AbsolutePath, _ path: AbsolutePath, segmentSize: Int, minMmapSize: Int, allowInconsistency: Bool) throws {
+    init(
+        importPath: AbsolutePath, _ path: AbsolutePath, segmentSize: Int, minMmapSize: Int,
+        allowInconsistency: Bool
+    ) throws {
         assert(segmentSize >= 1, "Too small segment size to split files")
         assert(minMmapSize >= 4096, "Too small minimum size for mmap(2)")
         let segmentSize = max(segmentSize, 1)
@@ -200,10 +202,15 @@ internal final class FileSegmenter {
         let atEOF = fileOffset + currentSegmentSize >= fileSize
 
         if let basePointer = self.mappedAt {
-            let ptr = UnsafeRawBufferPointer(start: basePointer.advanced(by: fileOffset), count: currentSegmentSize)
-            return (LLBFastData(ptr, deallocator: { _ in
-                    withExtendedLifetime(self) { }
-                }), isEOF: atEOF)
+            let ptr = UnsafeRawBufferPointer(
+                start: basePointer.advanced(by: fileOffset), count: currentSegmentSize)
+            return (
+                LLBFastData(
+                    ptr,
+                    deallocator: { _ in
+                        withExtendedLifetime(self) {}
+                    }), isEOF: atEOF
+            )
         }
 
         let fd: CInt
@@ -213,7 +220,8 @@ internal final class FileSegmenter {
         default:
             let newFD: CInt
             do {
-                newFD = try LLBFutureFileSystem.openImpl(path.pathString, flags: O_RDONLY | O_NOFOLLOW)
+                newFD = try LLBFutureFileSystem.openImpl(
+                    path.pathString, flags: O_RDONLY | O_NOFOLLOW)
             } catch {
                 guard allowInconsistency else {
                     // Ignore the details of the actual error: in most cases
@@ -235,7 +243,7 @@ internal final class FileSegmenter {
             let inconsistency = self.checkConsistency(ofSameFileOpenedAs: newFD)
             switch inconsistency {
             case .Same,
-                 .Modified where allowInconsistency == true:
+                .Modified where allowInconsistency == true:
                 // Do not log here, avoid duplicate logging.
                 break
             case .Deleted, .Replaced:
@@ -250,7 +258,8 @@ internal final class FileSegmenter {
         }
         defer { close(fd) }
 
-        let data = try LLBFutureFileSystem.syncReadComplete(fd: fd, readSize: currentSegmentSize, fileOffset: fileOffset)
+        let data = try LLBFutureFileSystem.syncReadComplete(
+            fd: fd, readSize: currentSegmentSize, fileOffset: fileOffset)
 
         if atEOF, segmentNumber == 0 {
             // If we've just slurped the whole relatively short (1 segm) file,
@@ -291,4 +300,3 @@ internal final class FileSegmenter {
         return (LLBFastData(data), isEOF: atEOF)
     }
 }
-

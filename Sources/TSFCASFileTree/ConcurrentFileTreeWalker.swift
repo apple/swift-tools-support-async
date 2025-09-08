@@ -7,14 +7,11 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import Foundation
-
-import NIOCore
 import NIOConcurrencyHelpers
+import NIOCore
 import TSCBasic
 import TSCUtility
-
 import TSFCAS
-
 
 protocol RetrieveChildrenProtocol: AnyObject {
     associatedtype Item
@@ -30,7 +27,9 @@ final class ConcurrentHierarchyWalker<Item> {
     private let futureOpQueue: LLBFutureOperationQueue
     private let getChildren: (_ of: Item, _ ctx: Context) -> LLBFuture<[Item]>
 
-    public init<Delegate: RetrieveChildrenProtocol>(group: LLBFuturesDispatchGroup, delegate: Delegate, maxConcurrentOperations: Int = 100) where Delegate.Item == Item {
+    public init<Delegate: RetrieveChildrenProtocol>(
+        group: LLBFuturesDispatchGroup, delegate: Delegate, maxConcurrentOperations: Int = 100
+    ) where Delegate.Item == Item {
         self.group = group
         self.getChildren = { (item, ctx) in
             delegate.children(of: item, ctx)
@@ -94,7 +93,9 @@ public class LLBConcurrentFileTreeWalker: RetrieveChildrenProtocol {
     /// list of entries that the filter has accepted.
     /// Scanning a single file will result in a single entry with no name.
     public func scan(root: LLBDataID, _ ctx: Context) -> LLBFuture<[FilterArgument]> {
-        let root = Item(arg: FilterArgument(path: .root, type: .UNRECOGNIZED(.min), size: 0), id: root, scanResult: ScanResult())
+        let root = Item(
+            arg: FilterArgument(path: .root, type: .UNRECOGNIZED(.min), size: 0), id: root,
+            scanResult: ScanResult())
         let walker = ConcurrentHierarchyWalker(group: db.group, delegate: self)
         return walker.walk(root, ctx).map { () in
             root.scanResult.reapResult()
@@ -115,18 +116,25 @@ public class LLBConcurrentFileTreeWalker: RetrieveChildrenProtocol {
             if typeHint == nil, item.arg.path == .root, item.arg.size == 0 {
                 // This is our root. Check if we're allowed to go past it.
                 let dirEntry = node.asDirectoryEntry(filename: "-")
-                let rootItem = Item(arg: FilterArgument(path: node.tree != nil ? .root : nil, type: dirEntry.info.type, size: Int(clamping: dirEntry.info.size)), id: dirEntry.id, scanResult: item.scanResult)
+                let rootItem = Item(
+                    arg: FilterArgument(
+                        path: node.tree != nil ? .root : nil, type: dirEntry.info.type,
+                        size: Int(clamping: dirEntry.info.size)), id: dirEntry.id,
+                    scanResult: item.scanResult)
                 guard self.filter(rootItem) else {
                     return []
                 }
             }
 
             switch node.value {
-            case let .tree(tree):
+            case .tree(let tree):
                 var directories = [Item]()
                 for (index, entry) in tree.files.enumerated() {
                     let entryPath = item.arg.path!.appending(component: entry.name)
-                    let entryItem = Item(arg: FilterArgument(path: entryPath, type: entry.type, size: Int(clamping: entry.size)), id: tree.object.refs[index], scanResult: item.scanResult)
+                    let entryItem = Item(
+                        arg: FilterArgument(
+                            path: entryPath, type: entry.type, size: Int(clamping: entry.size)),
+                        id: tree.object.refs[index], scanResult: item.scanResult)
                     guard self.filter(entryItem) else {
                         continue
                     }
@@ -136,8 +144,10 @@ public class LLBConcurrentFileTreeWalker: RetrieveChildrenProtocol {
                     }
                 }
                 return directories
-            case let .blob(blob):
-                let entryItem = Item(arg: FilterArgument(path: nil, type: blob.type, size: blob.size), id: item.id, scanResult: item.scanResult)
+            case .blob(let blob):
+                let entryItem = Item(
+                    arg: FilterArgument(path: nil, type: blob.type, size: blob.size), id: item.id,
+                    scanResult: item.scanResult)
                 _ = self.filter(entryItem)
                 return []
             }

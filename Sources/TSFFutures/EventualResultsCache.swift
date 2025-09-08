@@ -6,13 +6,14 @@
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
-import NIOCore
 import NIOConcurrencyHelpers
+import NIOCore
 
 /// Cache of keys to eventually obtainable values.
 ///
 /// This cache coalesces requests and avoids re-obtaining values multiple times.
-public final class LLBEventualResultsCache<Key: Hashable, Value>: LLBFutureDeduplicator<Key, Value> {
+public final class LLBEventualResultsCache<Key: Hashable, Value>: LLBFutureDeduplicator<Key, Value>
+{
     /// The already cached keys.
     @usableFromInline
     internal var storage = [Key: LLBFuture<Value>]()
@@ -20,7 +21,7 @@ public final class LLBEventualResultsCache<Key: Hashable, Value>: LLBFutureDedup
     /// Return the number of entries in the cache.
     @inlinable
     public var count: Int {
-        get { return lock.withLock { storage.count } }
+        return lock.withLock { storage.count }
     }
 
     @inlinable

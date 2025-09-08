@@ -7,14 +7,11 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import Foundation
-
-import NIOCore
 import NIOConcurrencyHelpers
-
+import NIOCore
 import TSCUtility
 import TSFFutures
 import TSFUtility
-
 
 /// A simple in-memory implementation of the `LLBCASDatabase` protocol.
 public final class LLBInMemoryCASDatabase: Sendable {
@@ -83,15 +80,21 @@ extension LLBInMemoryCASDatabase: LLBCASDatabase {
         return group.next().makeSucceededFuture(result)
     }
 
-    public func identify(refs: [LLBDataID] = [], data: LLBByteBuffer, _ ctx: Context) -> LLBFuture<LLBDataID> {
+    public func identify(refs: [LLBDataID] = [], data: LLBByteBuffer, _ ctx: Context) -> LLBFuture<
+        LLBDataID
+    > {
         return group.next().makeSucceededFuture(LLBDataID(blake3hash: data, refs: refs))
     }
 
-    public func put(refs: [LLBDataID] = [], data: LLBByteBuffer, _ ctx: Context) -> LLBFuture<LLBDataID> {
+    public func put(refs: [LLBDataID] = [], data: LLBByteBuffer, _ ctx: Context) -> LLBFuture<
+        LLBDataID
+    > {
         return put(knownID: LLBDataID(blake3hash: data, refs: refs), refs: refs, data: data, ctx)
     }
 
-    public func put(knownID id: LLBDataID, refs: [LLBDataID] = [], data: LLBByteBuffer, _ ctx: Context) -> LLBFuture<LLBDataID> {
+    public func put(
+        knownID id: LLBDataID, refs: [LLBDataID] = [], data: LLBByteBuffer, _ ctx: Context
+    ) -> LLBFuture<LLBDataID> {
         self.state.withLockedValue { state in
             guard state.content[id] == nil else {
                 assert(state.content[id]?.data == data, "put data for id doesn't match")
@@ -111,7 +114,9 @@ public struct LLBInMemoryCASDatabaseScheme: LLBCASDatabaseScheme {
         return host == nil && port == nil && path == "" && query == nil
     }
 
-    public static func open(group: LLBFuturesDispatchGroup, url: Foundation.URL) throws -> LLBCASDatabase {
+    public static func open(group: LLBFuturesDispatchGroup, url: Foundation.URL) throws
+        -> LLBCASDatabase
+    {
         return LLBInMemoryCASDatabase(group: group)
     }
 }

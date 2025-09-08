@@ -6,10 +6,8 @@
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
-import XCTest
-
 import TSFCAS
-
+import XCTest
 
 class LLBDataIDTests: XCTestCase {
 
@@ -22,7 +20,8 @@ class LLBDataIDTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode([LLBDataID].self, from: json), [id])
 
         // Check that invalid JSON is detected.
-        XCTAssertThrowsError(try JSONDecoder().decode([LLBDataID].self, from: Data("[\"not hex\"]".utf8)))
+        XCTAssertThrowsError(
+            try JSONDecoder().decode([LLBDataID].self, from: Data("[\"not hex\"]".utf8)))
     }
 
     /// Check that DataID can be parsed and re-serialized.
@@ -38,4 +37,3 @@ class LLBDataIDTests: XCTestCase {
     }
 
 }
-

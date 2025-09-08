@@ -11,8 +11,8 @@ import TSCUtility
 import TSFCAS
 import TSFCASFileTree
 
-private extension String {
-    func prepending(_ prefix: String) -> String {
+extension String {
+    fileprivate func prepending(_ prefix: String) -> String {
         return prefix + self
     }
 }
@@ -38,7 +38,7 @@ public struct LLBLinkedListStreamWriter {
     // This rebases the current logs onto a new data ID, potentially losing all the previous uploads if not saved
     // previously. The newBase should be another dataID produced by a LLBLinkedListStreamWriter.
     public mutating func rebase(onto newBase: LLBDataID, _ ctx: Context) {
-        self.latestData = LLBCASFSClient(db).load(newBase, ctx).map{
+        self.latestData = LLBCASFSClient(db).load(newBase, ctx).map {
             $0.tree
         }.tsf_unwrapOptional(orStringError: "Expected an LLBCASTree").map { tree in
             (id: tree.id, aggregateSize: tree.aggregateSize)
@@ -46,46 +46,54 @@ public struct LLBLinkedListStreamWriter {
     }
 
     @discardableResult
-    public mutating func append(data: LLBByteBuffer, channel: UInt8, _ ctx: Context) -> LLBFuture<LLBDataID> {
+    public mutating func append(data: LLBByteBuffer, channel: UInt8, _ ctx: Context) -> LLBFuture<
+        LLBDataID
+    > {
         let latestData = (
             // Append on the previously cached node, or use nil as sentinel if this is the first write.
-            self.latestData?.map { $0 } ?? db.group.next().makeSucceededFuture(nil)
-        ).flatMap { [db, ext] (previousData: (id: LLBDataID, aggregateSize: Int)?) -> LLBFuture<(id: LLBDataID, aggregateSize: Int)> in
-            db.put(data: data, ctx).flatMap { [db, ext] contentID in
+            self.latestData?.map { $0 } ?? db.group.next().makeSucceededFuture(nil)).flatMap {
+                [db, ext] (previousData: (id: LLBDataID, aggregateSize: Int)?) -> LLBFuture<
+                    (id: LLBDataID, aggregateSize: Int)
+                > in
+                db.put(data: data, ctx).flatMap { [db, ext] contentID in
 
-                var entries = [
-                    LLBDirectoryEntryID(
-                        info: .init(name: "\(channel)\(ext)", type: .plainFile, size: data.readableBytes),
-                        id: contentID
-                    ),
-                ]
-
-                let aggregateSize: Int
-                if let (prevID, prevSize) = previousData {
-                    entries.append(
+                    var entries = [
                         LLBDirectoryEntryID(
-                            info: .init(name: "prev", type: .directory, size: prevSize),
-                            id: prevID
+                            info: .init(
+                                name: "\(channel)\(ext)", type: .plainFile, size: data.readableBytes
+                            ),
+                            id: contentID
                         )
-                    )
-                    aggregateSize = prevSize + data.readableBytes
-                } else {
-                    aggregateSize = data.readableBytes
-                }
+                    ]
 
-                return LLBCASFileTree.create(files: entries, in: db, ctx).map { (id: $0.id, aggregateSize: aggregateSize) }
+                    let aggregateSize: Int
+                    if let (prevID, prevSize) = previousData {
+                        entries.append(
+                            LLBDirectoryEntryID(
+                                info: .init(name: "prev", type: .directory, size: prevSize),
+                                id: prevID
+                            )
+                        )
+                        aggregateSize = prevSize + data.readableBytes
+                    } else {
+                        aggregateSize = data.readableBytes
+                    }
+
+                    return LLBCASFileTree.create(files: entries, in: db, ctx).map {
+                        (id: $0.id, aggregateSize: aggregateSize)
+                    }
+                }
             }
-        }
 
         self.latestData = latestData
         return latestData.map { $0.id }
     }
 }
 
-public extension LLBLinkedListStreamWriter {
+extension LLBLinkedListStreamWriter {
     @discardableResult
     @inlinable
-    mutating func append(data: LLBByteBuffer, _ ctx: Context) -> LLBFuture<LLBDataID> {
+    public mutating func append(data: LLBByteBuffer, _ ctx: Context) -> LLBFuture<LLBDataID> {
         return append(data: data, channel: 0, ctx)
     }
 }

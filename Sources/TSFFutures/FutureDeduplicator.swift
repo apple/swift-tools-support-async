@@ -7,10 +7,8 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import Dispatch
-
-import NIOCore
 import NIOConcurrencyHelpers
-
+import NIOCore
 
 /// Deduplicate results of multiple requests for the same value.
 ///
@@ -39,10 +37,16 @@ public class LLBFutureDeduplicator<Key: Hashable, Value> {
 
     /// Return the number of entries in the cache.
     public var inFlightRequestCount: Int {
-        get { return lock.withLock { inFlightRequests.count } }
+        return lock.withLock { inFlightRequests.count }
     }
 
-    public init(group: LLBFuturesDispatchGroup, partialResultExpiration: DispatchTimeInterval = .seconds(300), expirationIntervalOverride: @escaping (_ for: Swift.Error) -> DispatchTimeInterval? = { _ in nil }) {
+    public init(
+        group: LLBFuturesDispatchGroup,
+        partialResultExpiration: DispatchTimeInterval = .seconds(300),
+        expirationIntervalOverride: @escaping (_ for: Swift.Error) -> DispatchTimeInterval? = { _ in
+            nil
+        }
+    ) {
         self.group = group
         self.partialResultExpiration = partialResultExpiration
         self.expirationInterval = expirationIntervalOverride
@@ -151,45 +155,48 @@ public class LLBFutureDeduplicator<Key: Hashable, Value> {
     }
 
     @inlinable
-    public func values(for keys: [Key], with resolver: ([Key]) -> LLBFuture<[Value]>) -> [LLBFuture<Value>] {
-        let (rv, created, promises): ([LLBFuture<Value>], [Key], [LLBPromise<Value>]) = lock.withLock {
-            let now = DispatchTime.now()
+    public func values(for keys: [Key], with resolver: ([Key]) -> LLBFuture<[Value]>) -> [LLBFuture<
+        Value
+    >] {
+        let (rv, created, promises): ([LLBFuture<Value>], [Key], [LLBPromise<Value>]) =
+            lock.withLock {
+                let now = DispatchTime.now()
 
-            var rv = [LLBFuture<Value>]()
-            var created = [Key]()
-            var promises = [LLBPromise<Value>]()
-            let maxResultCount = keys.count
-            rv.reserveCapacity(maxResultCount)
-            created.reserveCapacity(maxResultCount)
-            promises.reserveCapacity(maxResultCount)
+                var rv = [LLBFuture<Value>]()
+                var created = [Key]()
+                var promises = [LLBPromise<Value>]()
+                let maxResultCount = keys.count
+                rv.reserveCapacity(maxResultCount)
+                created.reserveCapacity(maxResultCount)
+                promises.reserveCapacity(maxResultCount)
 
-            for key in keys {
-                if let valueFuture = lockedCacheGet(key: key) {
-                    rv.append(valueFuture)
-                    continue
-                }
-
-                if let (resultPromise, expires) = inFlightRequests[key] {
-                    if expires >= now {
-                        rv.append(resultPromise.futureResult)
+                for key in keys {
+                    if let valueFuture = lockedCacheGet(key: key) {
+                        rv.append(valueFuture)
                         continue
                     }
+
+                    if let (resultPromise, expires) = inFlightRequests[key] {
+                        if expires >= now {
+                            rv.append(resultPromise.futureResult)
+                            continue
+                        }
+                    }
+
+                    // Stop deduplicating requests after a long-ish timeout,
+                    // just in case there is a particularly long CAS lag.
+                    let expires = now + partialResultExpiration
+
+                    // Cache for future use.
+                    let promise = self.group.next().makePromise(of: Value.self)
+                    self.inFlightRequests[key] = (promise, expires)
+                    rv.append(promise.futureResult)
+                    created.append(key)
+                    promises.append(promise)
                 }
 
-                // Stop deduplicating requests after a long-ish timeout,
-                // just in case there is a particularly long CAS lag.
-                let expires = now + partialResultExpiration
-
-                // Cache for future use.
-                let promise = self.group.next().makePromise(of: Value.self)
-                self.inFlightRequests[key] = (promise, expires)
-                rv.append(promise.futureResult)
-                created.append(key)
-                promises.append(promise)
+                return (rv, created, promises)
             }
-
-            return (rv, created, promises)
-        }
 
         // If the promise was created, fetch from the database.
         guard created.count > 0 else {
@@ -201,7 +208,8 @@ public class LLBFutureDeduplicator<Key: Hashable, Value> {
                 for idx in 0..<created.count {
                     let key = created[idx]
                     let promise = promises[idx]
-                    guard self.inFlightRequests[key]?.result.futureResult === promise.futureResult else {
+                    guard self.inFlightRequests[key]?.result.futureResult === promise.futureResult
+                    else {
                         continue
                     }
                     // Resolved, done.
@@ -219,7 +227,8 @@ public class LLBFutureDeduplicator<Key: Hashable, Value> {
             let expires: DispatchTimeInterval? = self.expirationInterval(error)
             self.lock.withLockVoid {
                 for (key, promise) in zip(created, promises) {
-                    guard self.inFlightRequests[key]?.result.futureResult === promise.futureResult else {
+                    guard self.inFlightRequests[key]?.result.futureResult === promise.futureResult
+                    else {
                         continue
                     }
                     if let interval = expires {

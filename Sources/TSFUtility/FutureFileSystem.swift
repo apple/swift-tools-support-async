@@ -7,11 +7,9 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import Foundation
-
 import NIOCore
 import TSCBasic
 import TSFFutures
-
 
 /// Asynchronous file system interface integrated with `Future`s.
 public struct LLBFutureFileSystem {
@@ -24,7 +22,9 @@ public struct LLBFutureFileSystem {
     ///                 Operations to execute in parallel.
     public init(group: LLBFuturesDispatchGroup) {
         let solidStateDriveParallelism = 8
-        self.batchingQueue = LLBBatchingFutureOperationQueue(name: "llbuild2.futureFileSystem", group: group, maxConcurrentOperationCount: solidStateDriveParallelism)
+        self.batchingQueue = LLBBatchingFutureOperationQueue(
+            name: "llbuild2.futureFileSystem", group: group,
+            maxConcurrentOperationCount: solidStateDriveParallelism)
     }
 
     public func readFileContents(_ path: AbsolutePath) -> LLBFuture<ArraySlice<UInt8>> {
@@ -34,7 +34,9 @@ public struct LLBFutureFileSystem {
         }
     }
 
-    public func readFileContentsWithStat(_ path: AbsolutePath) -> LLBFuture<(contents: ArraySlice<UInt8>, stat: stat)> {
+    public func readFileContentsWithStat(_ path: AbsolutePath) -> LLBFuture<
+        (contents: ArraySlice<UInt8>, stat: stat)
+    > {
         let pathString = path.pathString
         return batchingQueue.execute {
             try Self.syncReadWithStat(pathString)
@@ -57,7 +59,7 @@ public struct LLBFutureFileSystem {
         let fd = try Self.openImpl(path)
         defer { close(fd) }
 
-        let expectedFileSize = 8192 // Greater than 78% of stdlib headers.
+        let expectedFileSize = 8192  // Greater than 78% of stdlib headers.
         let firstBuffer = try syncReadComplete(fd: fd, readSize: expectedFileSize)
         guard firstBuffer.count == expectedFileSize else {
             // A small file was read without hitting stat(). Good.
@@ -84,17 +86,21 @@ public struct LLBFutureFileSystem {
 
             // Copy the already read bytes.
             firstBuffer.withUnsafeBytes { firstBufferBytes in
-                let alreadyRead = UnsafeRawBufferPointer(start: firstBufferBytes.baseAddress!, count: expectedFileSize)
+                let alreadyRead = UnsafeRawBufferPointer(
+                    start: firstBufferBytes.baseAddress!, count: expectedFileSize)
                 UnsafeMutableRawBufferPointer(ptr).copyMemory(from: alreadyRead)
             }
 
-            consumedSize += try unsafeReadCompleteImpl(fd: fd, ptr, bufferOffset: consumedSize, fileOffset: 0)
+            consumedSize += try unsafeReadCompleteImpl(
+                fd: fd, ptr, bufferOffset: consumedSize, fileOffset: 0)
         }
     }
 
     /// Return the bytes and sometimes the stat information for the file.
     /// The stat information is a byproduct and can be used as an optimization.
-    private static func syncReadWithStat(_ path: String) throws -> (contents: ArraySlice<UInt8>, stat: stat) {
+    private static func syncReadWithStat(_ path: String) throws -> (
+        contents: ArraySlice<UInt8>, stat: stat
+    ) {
         let fd = try Self.openImpl(path)
         defer { close(fd) }
 
@@ -116,10 +122,13 @@ public struct LLBFutureFileSystem {
     /// Read until reaches the readSize or an EOF.
     /// The difference between hitting the buffer with or without EOF can not
     /// be inferred from the return value of this function.
-    public static func syncReadComplete(fd: CInt, readSize: Int, fileOffset: Int = 0) throws -> [UInt8] {
+    public static func syncReadComplete(fd: CInt, readSize: Int, fileOffset: Int = 0) throws
+        -> [UInt8]
+    {
 
         return try [UInt8](unsafeUninitializedCapacity: readSize) { ptr, initializedCount in
-            initializedCount = try unsafeReadCompleteImpl(fd: fd, ptr, bufferOffset: 0, fileOffset: fileOffset)
+            initializedCount = try unsafeReadCompleteImpl(
+                fd: fd, ptr, bufferOffset: 0, fileOffset: fileOffset)
         }
     }
 
@@ -134,7 +143,9 @@ public struct LLBFutureFileSystem {
 
     /// Read until the end of the given buffer or EOF.
     /// Returns the bytes read.
-    private static func unsafeReadCompleteImpl(fd: CInt, _ ptr: UnsafeMutableBufferPointer<UInt8>, bufferOffset: Int, fileOffset: Int) throws -> Int {
+    private static func unsafeReadCompleteImpl(
+        fd: CInt, _ ptr: UnsafeMutableBufferPointer<UInt8>, bufferOffset: Int, fileOffset: Int
+    ) throws -> Int {
         var offset = 0
         while bufferOffset + offset < ptr.count {
             let (off, overflow) = fileOffset.addingReportingOverflow(offset)
@@ -143,7 +154,8 @@ public struct LLBFutureFileSystem {
                 throw FileSystemError(.unknownOSError)
             }
 
-            let count = try unsafeReadImpl(fd: fd, ptr, bufferOffset: bufferOffset + offset, fileOffset: off)
+            let count = try unsafeReadImpl(
+                fd: fd, ptr, bufferOffset: bufferOffset + offset, fileOffset: off)
             if count > 0 {
                 offset += count
             } else if count == 0 {
@@ -156,7 +168,9 @@ public struct LLBFutureFileSystem {
         return offset
     }
 
-    private static func unsafeReadImpl(fd: CInt, _ ptr: UnsafeMutableBufferPointer<UInt8>, bufferOffset: Int, fileOffset: Int) throws -> Int {
+    private static func unsafeReadImpl(
+        fd: CInt, _ ptr: UnsafeMutableBufferPointer<UInt8>, bufferOffset: Int, fileOffset: Int
+    ) throws -> Int {
         assert(bufferOffset < ptr.count)
 
         while true {

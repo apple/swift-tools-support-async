@@ -7,22 +7,21 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import Foundation
-
 import NIOCore
 import TSCBasic
 import TSFUtility
 
-
 // MARK:- DataID Extensions -
 
-fileprivate enum DataIDKind: UInt8 {
+private enum DataIDKind: UInt8 {
     /// An id that is directly calculated based on a hash of the data.
     case directHash = 0
     case shareableHash = 4
 
     init?(from bytes: Data) {
         guard let first = bytes.first,
-              let kind = DataIDKind(rawValue: first) else {
+            let kind = DataIDKind(rawValue: first)
+        else {
             return nil
         }
         self = kind
@@ -30,13 +29,13 @@ fileprivate enum DataIDKind: UInt8 {
 
     init?(from substring: Substring) {
         guard let first = substring.utf8.first,
-              first >= UInt8(ascii: "0") else {
+            first >= UInt8(ascii: "0")
+        else {
             return nil
         }
         self.init(rawValue: first - UInt8(ascii: "0"))
     }
 }
-
 
 extension LLBDataID: Hashable, CustomDebugStringConvertible {
 
@@ -44,8 +43,9 @@ extension LLBDataID: Hashable, CustomDebugStringConvertible {
     /// Properties of the string: the first character represents the kind,
     /// then '~', then the Base64 encoding follows.
     public var debugDescription: String {
-        return ArraySlice(bytes.dropFirst()).base64URL(prepending:
-            [(bytes.first ?? 15) + UInt8(ascii: "0"), UInt8(ascii: "~")])
+        return ArraySlice(bytes.dropFirst()).base64URL(prepending: [
+            (bytes.first ?? 15) + UInt8(ascii: "0"), UInt8(ascii: "~"),
+        ])
     }
 
     public init?(bytes: [UInt8]) {
@@ -75,14 +75,14 @@ extension LLBDataID: Hashable, CustomDebugStringConvertible {
         guard tilde == UInt8(ascii: "~") else { return nil }
 
         let b64substring = string.dropFirst(2)
-        guard let completeBytes = [UInt8](base64URL: b64substring, prepending: [kind.rawValue]) else {
+        guard let completeBytes = [UInt8](base64URL: b64substring, prepending: [kind.rawValue])
+        else {
             return nil
         }
 
         self.bytes = Data(completeBytes)
     }
 }
-
 
 extension LLBDataID: Comparable {
     /// Compare DataID according to stable but arbitrary rules
@@ -102,7 +102,6 @@ extension LLBDataID: Comparable {
         }
     }
 }
-
 
 // MARK:- Codable support for DataID -
 
@@ -125,12 +124,11 @@ extension LLBDataID: Codable {
     }
 }
 
-
 // MARK:- raw byte interfaces -
 
 extension LLBDataID: LLBSerializable {
     public enum LLBDataIDSliceError: Error {
-    case decoding(String)
+        case decoding(String)
     }
 
     @inlinable
@@ -169,4 +167,3 @@ extension LLBDataID: LLBSerializable {
         return bytes.count
     }
 }
-

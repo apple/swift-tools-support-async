@@ -7,11 +7,9 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import Foundation
-
-import TSFUtility
 import NIOCore
 import NIOFoundationCompat
-
+import TSFUtility
 
 // MARK:- CASObject Definition -
 
@@ -28,15 +26,15 @@ public struct LLBCASObject: Equatable, Sendable {
     }
 }
 
-public extension LLBCASObject {
-    init(refs: [LLBDataID], data: LLBByteBufferView) {
+extension LLBCASObject {
+    public init(refs: [LLBDataID], data: LLBByteBufferView) {
         self.init(refs: refs, data: LLBByteBuffer(data))
     }
 }
 
-public extension LLBCASObject {
+extension LLBCASObject {
     /// The size of the object data.
-    var size: Int {
+    public var size: Int {
         return data.readableBytes
     }
 }
@@ -52,15 +50,15 @@ public protocol LLBCASObjectConstructable {
 
 // MARK:- CASObject Serializeable -
 
-public extension LLBCASObject {
-    init(rawBytes: Data) throws {
+extension LLBCASObject {
+    public init(rawBytes: Data) throws {
         let pb = try LLBPBCASObject(serializedBytes: rawBytes)
         var data = LLBByteBufferAllocator().buffer(capacity: pb.data.count)
         data.writeBytes(pb.data)
         self.init(refs: pb.refs, data: data)
     }
 
-    func toData() throws -> Data {
+    public func toData() throws -> Data {
         var pb = LLBPBCASObject()
         pb.refs = self.refs
         pb.data = Data(buffer: self.data)
@@ -71,7 +69,10 @@ public extension LLBCASObject {
 extension LLBCASObject: LLBSerializable {
     public init(from rawBytes: LLBByteBuffer) throws {
         let pb = try rawBytes.withUnsafeReadableBytes {
-            try LLBPBCASObject(serializedBytes: Data(bytesNoCopy: UnsafeMutableRawPointer(mutating: $0.baseAddress!), count: $0.count, deallocator: .none))
+            try LLBPBCASObject(
+                serializedBytes: Data(
+                    bytesNoCopy: UnsafeMutableRawPointer(mutating: $0.baseAddress!),
+                    count: $0.count, deallocator: .none))
         }
         let refs = pb.refs
         var data = LLBByteBufferAllocator().buffer(capacity: pb.data.count)
@@ -84,4 +85,3 @@ extension LLBCASObject: LLBSerializable {
     }
 
 }
-

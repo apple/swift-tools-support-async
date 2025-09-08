@@ -7,14 +7,13 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import Atomics
-import NIOCore
 import NIOConcurrencyHelpers
-
+import NIOCore
 
 public enum LLBCancellablePromiseError: Error {
-case promiseFulfilled
-case promiseCancelled
-case promiseLeaked
+    case promiseFulfilled
+    case promiseCancelled
+    case promiseLeaked
 }
 
 /// A promise that can be cancelled prematurely.
@@ -32,9 +31,9 @@ open class LLBCancellablePromise<T>: @unchecked /* because inheritance... */ Sen
     ///     - fulfilled: The promise has been fulfilled with a value or error.
     ///     - cancelled: The promise has been cancelled via cancel(_:)
     public enum State: Int {
-    case inProgress
-    case fulfilled
-    case cancelled
+        case inProgress
+        case fulfilled
+        case cancelled
     }
 
     /// A state maintaining the lifecycle of the promise.
@@ -79,7 +78,8 @@ open class LLBCancellablePromise<T>: @unchecked /* because inheritance... */ Sen
     private func modifyState(_ newState: State) -> Bool {
         assert(newState != .inProgress)
         return state_.compareExchange(
-            expected: State.inProgress.rawValue, desired: newState.rawValue, ordering: .sequentiallyConsistent
+            expected: State.inProgress.rawValue, desired: newState.rawValue,
+            ordering: .sequentiallyConsistent
         ).0
     }
 
@@ -123,7 +123,9 @@ extension LLBFuture {
     /// Execute the given operation if a specified promise is not complete.
     /// Otherwise encode a `CancellablePromiseError`.
     @inlinable
-    public func ifNotCompleteThen<P, O>(check promise: LLBCancellablePromise<P>, _ operation: @escaping (Value) -> LLBFuture<O>) -> LLBFuture<O> {
+    public func ifNotCompleteThen<P, O>(
+        check promise: LLBCancellablePromise<P>, _ operation: @escaping (Value) -> LLBFuture<O>
+    ) -> LLBFuture<O> {
         flatMap { value in
             switch promise.state {
             case .inProgress:
@@ -139,7 +141,9 @@ extension LLBFuture {
     /// Execute the given operation if a specified promise is not complete.
     /// Otherwise encode a `CancellablePromiseError`.
     @inlinable
-    public func ifNotCompleteMap<P, O>(check promise: LLBCancellablePromise<P>, _ operation: @escaping (Value) -> O) -> LLBFuture<O> {
+    public func ifNotCompleteMap<P, O>(
+        check promise: LLBCancellablePromise<P>, _ operation: @escaping (Value) -> O
+    ) -> LLBFuture<O> {
         flatMapThrowing { value in
             switch promise.state {
             case .inProgress:
@@ -158,8 +162,8 @@ extension LLBFuture {
         guard promise.isCompleted == false else { return }
         whenComplete { result in
             switch result {
-            case let .success(value): _ = promise.succeed(value)
-            case let .failure(error): _ = promise.fail(error)
+            case .success(let value): _ = promise.succeed(value)
+            case .failure(let error): _ = promise.fail(error)
             }
         }
     }

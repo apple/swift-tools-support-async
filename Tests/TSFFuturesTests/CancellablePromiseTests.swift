@@ -2,12 +2,10 @@
 //  Copyright © 2019-2020 Apple, Inc. All rights reserved.
 //
 
-import XCTest
-
 import NIO
 import NIOConcurrencyHelpers
-
 import TSFFutures
+import XCTest
 
 class CancellablePromiseTests: XCTestCase {
 
@@ -27,9 +25,9 @@ class CancellablePromiseTests: XCTestCase {
     }
 
     public enum GenericError: Swift.Error {
-    case error
-    case error1
-    case error2
+        case error
+        case error1
+        case error2
     }
 
     func testBasicSuccess() throws {

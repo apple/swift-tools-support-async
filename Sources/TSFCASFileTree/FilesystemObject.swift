@@ -7,9 +7,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import Foundation
-
 import TSCBasic
-
 
 public protocol LLBFilesystemObjectMaterializer: AnyObject {
     func materialize(object: LLBFilesystemObject) throws
@@ -22,18 +20,18 @@ public struct LLBFilesystemObject {
     public let posixDetails: LLBPosixFileDetails?
 
     public enum Content {
-    /// Not an actual filesystem content, a placeholder.
-    case ignore
-    /// Create an empty file.
-    case empty(size: UInt64, executable: Bool)
-    /// Part of a file to be placed at a specified offset.
-    case partial(data: LLBFastData, offset: UInt64)
-    /// An entire file (possibly executable)
-    case file(data: LLBFastData, executable: Bool)
-    /// Symbolic link.
-    case symlink(target: String)
-    /// An (empty) directory.
-    case directory
+        /// Not an actual filesystem content, a placeholder.
+        case ignore
+        /// Create an empty file.
+        case empty(size: UInt64, executable: Bool)
+        /// Part of a file to be placed at a specified offset.
+        case partial(data: LLBFastData, offset: UInt64)
+        /// An entire file (possibly executable)
+        case file(data: LLBFastData, executable: Bool)
+        /// Symbolic link.
+        case symlink(target: String)
+        /// An (empty) directory.
+        case directory
     }
 
     public init() {
@@ -42,13 +40,13 @@ public struct LLBFilesystemObject {
         self.posixDetails = nil
     }
 
-    public init(_ path: AbsolutePath, _ content: Content, posixDetails: LLBPosixFileDetails? = nil) {
+    public init(_ path: AbsolutePath, _ content: Content, posixDetails: LLBPosixFileDetails? = nil)
+    {
         self.path = path
         self.content = content
         self.posixDetails = posixDetails
     }
 }
-
 
 /// Expose accounting stats.
 extension LLBFilesystemObject {
@@ -58,11 +56,11 @@ extension LLBFilesystemObject {
         switch self.content {
         case .ignore, .empty:
             return 0
-        case let .partial(data, _):
+        case .partial(let data, _):
             return data.count
-        case let .file(data, _):
+        case .file(let data, _):
             return data.count
-        case let .symlink(target):
+        case .symlink(let target):
             return target.utf8.count
         case .directory:
             return 0
@@ -126,7 +124,7 @@ public final class LLBRealFilesystemMaterializer: LLBFilesystemObjectMaterialize
         case .ignore:
             // Nothing to do
             break
-        case let .empty(size, executable):
+        case .empty(let size, let executable):
 
             // Be mindful and rely on `umask` when setting permissions.
             let openMode: mode_t
@@ -138,28 +136,31 @@ public final class LLBRealFilesystemMaterializer: LLBFilesystemObjectMaterialize
 
             let fd = open(path.pathString, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, openMode)
             guard fd != -1 else {
-                throw LLBExportIOError.unableSyscall(path: path, call: "open", error: String(cString: strerror(errno)))
+                throw LLBExportIOError.unableSyscall(
+                    path: path, call: "open", error: String(cString: strerror(errno)))
             }
             defer { close(fd) }
 
             if size > 0 && ftruncate(fd, off_t(size)) == -1 {
-                throw LLBExportIOError.unableSyscall(path: path, call: "ftruncate", error: String(cString: strerror(errno)))
+                throw LLBExportIOError.unableSyscall(
+                    path: path, call: "ftruncate", error: String(cString: strerror(errno)))
             }
 
             try updateFileDetails(object: object, fd: fd)
 
-        case let .partial(data, fileOffset):
+        case .partial(let data, let fileOffset):
             // The file should exist by now. Insert data into it.
 
             let fd = open(path.pathString, O_WRONLY | O_NOFOLLOW | O_CLOEXEC)
             guard fd != -1 else {
-                throw LLBExportIOError.unableSyscall(path: path, call: "open", error: String(cString: strerror(errno)))
+                throw LLBExportIOError.unableSyscall(
+                    path: path, call: "open", error: String(cString: strerror(errno)))
             }
             defer { close(fd) }
 
             try writeFileData(fd: fd, data: data, startOffset: fileOffset, debugPath: path)
 
-        case let .file(data, executable):
+        case .file(let data, let executable):
 
             // Be mindful and rely on `umask` when setting permissions.
             let openMode: mode_t
@@ -169,9 +170,11 @@ public final class LLBRealFilesystemMaterializer: LLBFilesystemObjectMaterialize
                 openMode = (executable ? 0o755 : 0o644)
             }
 
-            let fd = open(path.pathString, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, openMode)
+            let fd = open(
+                path.pathString, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, openMode)
             guard fd != -1 else {
-                throw LLBExportIOError.unableSyscall(path: path, call: "open", error: String(cString: strerror(errno)))
+                throw LLBExportIOError.unableSyscall(
+                    path: path, call: "open", error: String(cString: strerror(errno)))
             }
             defer { close(fd) }
 
@@ -179,7 +182,7 @@ public final class LLBRealFilesystemMaterializer: LLBFilesystemObjectMaterialize
 
             try writeFileData(fd: fd, data: data, startOffset: 0, debugPath: path)
 
-        case let .symlink(target):
+        case .symlink(let target):
 
             let pathString = path.pathString
             if symlink(target, pathString) != 0 {
@@ -202,7 +205,8 @@ public final class LLBRealFilesystemMaterializer: LLBFilesystemObjectMaterialize
                 defer { closedir(dir) }
                 try updateFileDetails(object: object, fd: dirfd(dir))
             } else {
-                throw LLBExportIOError.unableSyscall(path: object.path, call: "fdopen", error: String(cString: strerror(errno)))
+                throw LLBExportIOError.unableSyscall(
+                    path: object.path, call: "fdopen", error: String(cString: strerror(errno)))
             }
         }
     }
@@ -214,13 +218,15 @@ public final class LLBRealFilesystemMaterializer: LLBFilesystemObjectMaterialize
         case .ignore, .symlink, .partial:
             return
         case .empty(_, let executable),
-             .file(_, let executable):
+            .file(_, let executable):
             expectedMode = executable ? 0o755 : 0o644
         case .directory:
             expectedMode = 0o755
         }
 
-        guard let details = object.posixDetails?.normalized(expectedMode: expectedMode, options: nil) else {
+        guard
+            let details = object.posixDetails?.normalized(expectedMode: expectedMode, options: nil)
+        else {
             return
         }
 
@@ -229,7 +235,8 @@ public final class LLBRealFilesystemMaterializer: LLBFilesystemObjectMaterialize
             let group = gid_t(exactly: details.group) ?? 0
             if owner != 0 || group != 0 {
                 guard fchown(fd, owner, group) != -1 else {
-                    throw LLBExportIOError.unableSyscall(path: object.path, call: "fchown", error: String(cString: strerror(errno)))
+                    throw LLBExportIOError.unableSyscall(
+                        path: object.path, call: "fchown", error: String(cString: strerror(errno)))
                 }
             }
         }
@@ -239,7 +246,8 @@ public final class LLBRealFilesystemMaterializer: LLBFilesystemObjectMaterialize
         // Fix it here before we start writing (exposing) the data.
         if preserve.preservePosixMode, let mode = mode_t(exactly: details.mode), mode != 0 {
             guard fchmod(fd, mode & 0o7777) != -1 else {
-                throw LLBExportIOError.unableSyscall(path: object.path, call: "fchmod", error: String(cString: strerror(errno)))
+                throw LLBExportIOError.unableSyscall(
+                    path: object.path, call: "fchmod", error: String(cString: strerror(errno)))
             }
         }
 
@@ -247,16 +255,21 @@ public final class LLBRealFilesystemMaterializer: LLBFilesystemObjectMaterialize
 
     /// Can't use Basic's file utilities without data conversion.
     /// Instead we implement a low level write loop.
-    private func writeFileData(fd: CInt, data: LLBFastData, startOffset: UInt64, debugPath: AbsolutePath) throws {
+    private func writeFileData(
+        fd: CInt, data: LLBFastData, startOffset: UInt64, debugPath: AbsolutePath
+    ) throws {
         var dataOffset: Int = 0
         repeat {
             let (uint_off, overflow) = startOffset.addingReportingOverflow(UInt64(dataOffset))
             guard let file_offset = off_t(exactly: uint_off), !overflow else {
-                throw LLBExportIOError.unableSyscall(path: debugPath, call: "pwrite", error: String(cString: strerror(ERANGE)))
+                throw LLBExportIOError.unableSyscall(
+                    path: debugPath, call: "pwrite", error: String(cString: strerror(ERANGE)))
             }
 
             let err: CInt = data.withContiguousStorage { ptr in
-                let ret = pwrite(fd, ptr.baseAddress!.advanced(by: dataOffset), ptr.count - dataOffset, file_offset)
+                let ret = pwrite(
+                    fd, ptr.baseAddress!.advanced(by: dataOffset), ptr.count - dataOffset,
+                    file_offset)
                 if ret == -1 {
                     return errno
                 } else {
@@ -265,7 +278,8 @@ public final class LLBRealFilesystemMaterializer: LLBFilesystemObjectMaterialize
                 }
             }
             guard err == 0 || err == EINTR else {
-                throw LLBExportIOError.unableSyscall(path: debugPath, call: "pwrite", error: String(cString: strerror(err)))
+                throw LLBExportIOError.unableSyscall(
+                    path: debugPath, call: "pwrite", error: String(cString: strerror(err)))
             }
         } while dataOffset < data.count
     }

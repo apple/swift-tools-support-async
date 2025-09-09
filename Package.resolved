@@ -2,6 +2,15 @@
   "object": {
     "pins": [
       {
+        "package": "swift-async-algorithms",
+        "repositoryURL": "https://github.com/apple/swift-async-algorithms.git",
+        "state": {
+          "branch": null,
+          "revision": "042e1c4d9d19748c9c228f8d4ebc97bb1e339b0b",
+          "version": "1.0.4"
+        }
+      },
+      {
         "package": "swift-atomics",
         "repositoryURL": "https://github.com/apple/swift-atomics.git",
         "state": {
@@ -17,6 +26,15 @@
           "branch": null,
           "revision": "671108c96644956dddcd89dd59c203dcdb36cec7",
           "version": "1.1.4"
+        }
+      },
+      {
+        "package": "swift-log",
+        "repositoryURL": "https://github.com/apple/swift-log.git",
+        "state": {
+          "branch": null,
+          "revision": "ce592ae52f982c847a4efc0dd881cc9eb32d29f2",
+          "version": "1.6.4"
         }
       },
       {

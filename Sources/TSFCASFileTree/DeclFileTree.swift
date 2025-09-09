@@ -10,7 +10,6 @@ import NIOCore
 import TSCUtility
 import TSFCAS
 
-
 /// A declarative way to create a CASFileTree with content known upfront
 /// Usage example:
 /// let tree: LLBDeclFileTree = .dir(["dir1": .dir([<dir1 content>]), "file1": .file(<file1 content>)])
@@ -35,23 +34,22 @@ public indirect enum LLBDeclFileTree {
 extension LLBDeclFileTree: CustomDebugStringConvertible {
     public var debugDescription: String {
         switch self {
-        case let .directory(files):
+        case .directory(let files):
             return ".directory(\(files))"
-        case let .file(contents):
+        case .file(let contents):
             return ".file(\(contents.count))"
         }
     }
 }
 
-
 extension LLBCASFSClient {
     /// Save LLBDeclFileTree to CAS
     public func store(_ declTree: LLBDeclFileTree, _ ctx: Context) -> LLBFuture<LLBCASFSNode> {
         switch declTree {
-            case .directory:
-                return storeDir(declTree, ctx).map { LLBCASFSNode(tree: $0, db: self.db) }
-            case .file:
-                return storeFile(declTree, ctx).map { LLBCASFSNode(blob: $0, db: self.db) }
+        case .directory:
+            return storeDir(declTree, ctx).map { LLBCASFSNode(tree: $0, db: self.db) }
+        case .file:
+            return storeFile(declTree, ctx).map { LLBCASFSNode(blob: $0, db: self.db) }
         }
     }
 
@@ -63,14 +61,16 @@ extension LLBCASFSClient {
         let infosFutures: [LLBFuture<LLBDirectoryEntryID>] = files.map { arg in
             let (key, value) = arg
             switch value {
-                case .directory:
-                    let treeFuture = storeDir(value, ctx)
-                    return treeFuture.map { tree in
-                        LLBDirectoryEntryID(info: .init(name: key, type: .directory, size: tree.aggregateSize),
-                                              id: tree.id)}
-                case .file(_):
-                    return storeFile(value, ctx).map { blob in
-                        blob.asDirectoryEntry(filename: key)
+            case .directory:
+                let treeFuture = storeDir(value, ctx)
+                return treeFuture.map { tree in
+                    LLBDirectoryEntryID(
+                        info: .init(name: key, type: .directory, size: tree.aggregateSize),
+                        id: tree.id)
+                }
+            case .file(_):
+                return storeFile(value, ctx).map { blob in
+                    blob.asDirectoryEntry(filename: key)
                 }
             }
         }
@@ -84,7 +84,8 @@ extension LLBCASFSClient {
         guard case .file(contents: let contents) = declTree else {
             return loop.makeFailedFuture(Error.invalidUse)
         }
-        return LLBCASBlob.import(data: LLBByteBuffer.withBytes(contents), isExecutable: false, in: db, ctx)
+        return LLBCASBlob.import(
+            data: LLBByteBuffer.withBytes(contents), isExecutable: false, in: db, ctx)
     }
 
 }
@@ -92,11 +93,11 @@ extension LLBCASFSClient {
 extension LLBCASFSClient {
     public func store(_ declTree: LLBDeclFileTree, _ ctx: Context) -> LLBFuture<LLBDataID> {
         switch declTree {
-            case .directory:
-                return storeDir(declTree, ctx).map{ $0.id }
-            case .file:
-                return storeFile(declTree, ctx).flatMap { casBlob in
-                    casBlob.export(ctx)
+        case .directory:
+            return storeDir(declTree, ctx).map { $0.id }
+        case .file:
+            return storeFile(declTree, ctx).flatMap { casBlob in
+                casBlob.export(ctx)
             }
         }
     }

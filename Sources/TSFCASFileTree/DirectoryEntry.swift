@@ -9,11 +9,15 @@
 import Foundation
 
 extension LLBDirectoryEntry {
-    public init(name: String, type: LLBFileType, size: Int, posixDetails: LLBPosixFileDetails? = nil) {
+    public init(
+        name: String, type: LLBFileType, size: Int, posixDetails: LLBPosixFileDetails? = nil
+    ) {
         self.init(name: name, type: type, size: UInt64(clamping: size), posixDetails: posixDetails)
     }
 
-    public init(name: String, type: LLBFileType, size: UInt64, posixDetails: LLBPosixFileDetails? = nil) {
+    public init(
+        name: String, type: LLBFileType, size: UInt64, posixDetails: LLBPosixFileDetails? = nil
+    ) {
         self.name = name
         self.type = type
         self.size = size
@@ -35,4 +39,3 @@ extension LLBFileType {
         }
     }
 }
-

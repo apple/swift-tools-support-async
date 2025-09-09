@@ -1,11 +1,11 @@
 import Foundation
-import NIOCore
 import NIOConcurrencyHelpers
+import NIOCore
 import TSCUtility
 import TSFCAS
 
-fileprivate extension LLBByteBuffer {
-    var availableCapacity: Int { capacity - readableBytes }
+extension LLBByteBuffer {
+    fileprivate var availableCapacity: Int { capacity - readableBytes }
 }
 
 /// Stream writer that buffers data before ingesting it into the CAS database.
@@ -37,7 +37,8 @@ public class LLBBufferedStreamWriter {
     /// is larger than the buffer size.
     public func write(data: LLBByteBuffer, channel: UInt8, _ ctx: Context = .init()) {
         lock.withLock {
-            if channel != currentBufferedChannel || data.readableBytes > currentBuffer.availableCapacity
+            if channel != currentBufferedChannel
+                || data.readableBytes > currentBuffer.availableCapacity
             {
                 _flush(ctx)
             }

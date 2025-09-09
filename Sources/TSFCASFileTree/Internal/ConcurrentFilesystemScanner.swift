@@ -7,11 +7,9 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import Foundation
-
-import TSCBasic
 import NIO
 import NIOConcurrencyHelpers
-
+import TSCBasic
 
 /// A thread-safe concurrent scan of the filesystem.
 /// Beware of the file descriptor requirements: each open directory
@@ -48,7 +46,9 @@ class ConcurrentFilesystemScanner: Sequence {
     /// off the filesystem three.
     /// The `pathFilter` argument can be used to avoid including
     /// files and directories in the iterator output.
-    init(_ path: AbsolutePath, pathFilter: ((AbsolutePath, FilesystemObjectType) -> Bool)? = nil) throws {
+    init(_ path: AbsolutePath, pathFilter: ((AbsolutePath, FilesystemObjectType) -> Bool)? = nil)
+        throws
+    {
         self.pathFilter = pathFilter
         let node = try FilesystemPathInfo(path)
         unprocessed.append(node)
@@ -111,15 +111,15 @@ class FilesystemIterator: IteratorProtocol {
     }
 
     private enum Step {
-    /// The scanner gave us an open directory so we can read more files from it.
-    case iterateDirectory(FilesystemDirectoryIterator)
-    /// The scanner gave us a bunch of files (and maybe a directory), so
-    /// we can stash them and maybe expand that directory into files while
-    /// we are at it.
-    case expand([FilesystemPathInfo])
-    // Some background process might populate.
-    case waitForMoreWork
-    case finished
+        /// The scanner gave us an open directory so we can read more files from it.
+        case iterateDirectory(FilesystemDirectoryIterator)
+        /// The scanner gave us a bunch of files (and maybe a directory), so
+        /// we can stash them and maybe expand that directory into files while
+        /// we are at it.
+        case expand([FilesystemPathInfo])
+        // Some background process might populate.
+        case waitForMoreWork
+        case finished
     }
 
     public func next() -> Element? {
@@ -176,7 +176,10 @@ class FilesystemIterator: IteratorProtocol {
 
                 var moreDirectories = [FilesystemPathInfo]()
                 for entry in entries {
-                    guard let pathInfo = try? FilesystemPathInfo(dir.path.appending(component: entry.name), hint: entry.type) else {
+                    guard
+                        let pathInfo = try? FilesystemPathInfo(
+                            dir.path.appending(component: entry.name), hint: entry.type)
+                    else {
                         continue
                     }
                     guard filter(pathInfo) else {
@@ -199,7 +202,7 @@ class FilesystemIterator: IteratorProtocol {
             }
 
             switch step {
-            case let .iterateDirectory(dir):
+            case .iterateDirectory(let dir):
                 let hasMoreEntries = grabFilenames(from: dir)
                 scanner.sharedLock.lock()
                 if hasMoreEntries {
@@ -208,13 +211,13 @@ class FilesystemIterator: IteratorProtocol {
                 }
                 scanner.hasUnfinishedWork -= 1
                 scanner.sharedLock.unlock(withValue: 0)
-            case let .expand(pathInfos):
+            case .expand(let pathInfos):
                 var putBackExpandingDirs = [FilesystemDirectoryIterator]()
                 for pathInfo in pathInfos {
                     switch pathInfo.info {
                     case .file, .symlink, .nonRegular:
                         stashed.append(pathInfo)
-                    case let .directory(dir):
+                    case .directory(let dir):
                         if grabFilenames(from: dir) {
                             putBackExpandingDirs.append(dir)
                         }
@@ -248,14 +251,14 @@ struct FilesystemPathInfo {
     public let info: PathInfo
 
     public enum PathInfo {
-    /// A plain file.
-    case file
-    /// A symbolic link.
-    case symlink
-    /// A source of directory information.
-    case directory(entries: FilesystemDirectoryIterator)
-    /// Neither file nor a directory.
-    case nonRegular(type: FilesystemObjectType)
+        /// A plain file.
+        case file
+        /// A symbolic link.
+        case symlink
+        /// A source of directory information.
+        case directory(entries: FilesystemDirectoryIterator)
+        /// Neither file nor a directory.
+        case nonRegular(type: FilesystemObjectType)
     }
 
     /// Return the filesystem object type at the moment of discovery.
@@ -317,13 +320,13 @@ class FilesystemDirectoryIterator: IteratorProtocol {
 
     fileprivate let path: AbsolutePath
     private let dirLock = NIOConcurrencyHelpers.NIOLock()
-#if canImport(Darwin)
-    private var dir: UnsafeMutablePointer<DIR>!
-#elseif os(Linux)
-    private var dir: OpaquePointer!
-#else
-#error("Unsupported platform")
-#endif
+    #if canImport(Darwin)
+        private var dir: UnsafeMutablePointer<DIR>!
+    #elseif os(Linux)
+        private var dir: OpaquePointer!
+    #else
+        #error("Unsupported platform")
+    #endif
     public typealias NameAndType = (name: String, type: FilesystemObjectType)
     private var prefetched = [NameAndType]()
 
@@ -399,9 +402,13 @@ class FilesystemDirectoryIterator: IteratorProtocol {
                 break
             }
 
-            guard let filename: String = withUnsafeBytes(of: &entry.pointee.d_name, { ptr in
-                String(validatingUTF8: ptr.baseAddress!.assumingMemoryBound(to: CChar.self))
-            }) else {
+            guard
+                let filename: String = withUnsafeBytes(
+                    of: &entry.pointee.d_name,
+                    { ptr in
+                        String(validatingUTF8: ptr.baseAddress!.assumingMemoryBound(to: CChar.self))
+                    })
+            else {
                 // Not an UTF-8-convertible name. Ignore it with prejudice.
                 continue
             }
@@ -415,7 +422,6 @@ class FilesystemDirectoryIterator: IteratorProtocol {
     }
 
 }
-
 
 /// Directory entry type, `man 5 dirent`.
 /// We don't assign values there because the DT_xxx and S_IFxxx values
@@ -438,38 +444,38 @@ public enum FilesystemObjectType: UInt8 {
 
     /// Initialize from dirent's d_type.
     public init(d_type: UInt8) {
-#if canImport(Darwin) || canImport(Musl)
-        switch CInt(d_type) {
-        case DT_UNKNOWN: self = .UNKNOWN
-        case DT_FIFO: self = .FIFO
-        case DT_CHR: self = .CHR
-        case DT_DIR: self = .DIR
-        case DT_BLK: self = .BLK
-        case DT_REG: self = .REG
-        case DT_LNK: self = .LNK
-        case DT_SOCK: self = .SOCK
-        case DT_WHT: self = .WHT
-        default: self = .UNKNOWN
-        }
-#else
-        switch Int(d_type) {
-        case DT_UNKNOWN: self = .UNKNOWN
-        case DT_FIFO: self = .FIFO
-        case DT_CHR: self = .CHR
-        case DT_DIR: self = .DIR
-        case DT_BLK: self = .BLK
-        case DT_REG: self = .REG
-        case DT_LNK: self = .LNK
-        case DT_SOCK: self = .SOCK
-        case DT_WHT: self = .WHT
-        default: self = .UNKNOWN
-        }
-#endif
+        #if canImport(Darwin) || canImport(Musl)
+            switch CInt(d_type) {
+            case DT_UNKNOWN: self = .UNKNOWN
+            case DT_FIFO: self = .FIFO
+            case DT_CHR: self = .CHR
+            case DT_DIR: self = .DIR
+            case DT_BLK: self = .BLK
+            case DT_REG: self = .REG
+            case DT_LNK: self = .LNK
+            case DT_SOCK: self = .SOCK
+            case DT_WHT: self = .WHT
+            default: self = .UNKNOWN
+            }
+        #else
+            switch Int(d_type) {
+            case DT_UNKNOWN: self = .UNKNOWN
+            case DT_FIFO: self = .FIFO
+            case DT_CHR: self = .CHR
+            case DT_DIR: self = .DIR
+            case DT_BLK: self = .BLK
+            case DT_REG: self = .REG
+            case DT_LNK: self = .LNK
+            case DT_SOCK: self = .SOCK
+            case DT_WHT: self = .WHT
+            default: self = .UNKNOWN
+            }
+        #endif
     }
 
     /// Initialize from stat's st_mode.
     public init(st_mode: mode_t) {
-        switch (st_mode & S_IFMT) {
+        switch st_mode & S_IFMT {
         case S_IFIFO: self = .FIFO
         case S_IFCHR: self = .CHR
         case S_IFDIR: self = .DIR
@@ -477,9 +483,9 @@ public enum FilesystemObjectType: UInt8 {
         case S_IFREG: self = .REG
         case S_IFLNK: self = .LNK
         case S_IFSOCK: self = .SOCK
-#if os(macOS)
-        case S_IFWHT: self = .WHT
-#endif
+        #if os(macOS)
+            case S_IFWHT: self = .WHT
+        #endif
         default: self = .UNKNOWN
         }
     }

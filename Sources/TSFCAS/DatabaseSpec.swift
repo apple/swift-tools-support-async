@@ -7,10 +7,8 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import Foundation
-
 import NIOCore
 import TSFFutures
-
 
 /// A scheme for specifying a CASDatabase.
 public protocol LLBCASDatabaseScheme {
@@ -23,7 +21,6 @@ public protocol LLBCASDatabaseScheme {
     /// Open a content store in this scheme.
     static func open(group: LLBFuturesDispatchGroup, url: URL) throws -> LLBCASDatabase
 }
-
 
 /// A specification for a CAS database location.
 ///
@@ -91,7 +88,7 @@ public struct LLBCASDatabaseSpec {
 }
 
 extension LLBCASDatabaseSpec: Equatable {
-    public static func ==(lhs: LLBCASDatabaseSpec, rhs: LLBCASDatabaseSpec) -> Bool {
+    public static func == (lhs: LLBCASDatabaseSpec, rhs: LLBCASDatabaseSpec) -> Bool {
         return lhs.url == rhs.url
     }
 }

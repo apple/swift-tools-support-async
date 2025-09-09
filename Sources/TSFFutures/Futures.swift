@@ -7,7 +7,6 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import NIO
-
 import TSCBasic
 import TSCUtility
 
@@ -16,15 +15,14 @@ public typealias LLBPromise<T> = NIO.EventLoopPromise<T>
 public typealias LLBFuturesDispatchGroup = NIO.EventLoopGroup
 public typealias LLBFuturesDispatchLoop = NIO.EventLoop
 
-
 public func LLBMakeDefaultDispatchGroup() -> LLBFuturesDispatchGroup {
     return MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
 }
 
-public extension LLBPromise {
+extension LLBPromise {
     /// Fulfill the promise from a returned value, or fail the promise if throws.
     @inlinable
-    func fulfill(_ body: () throws -> Value) {
+    public func fulfill(_ body: () throws -> Value) {
         do {
             try succeed(body())
         } catch {
@@ -33,16 +31,20 @@ public extension LLBPromise {
     }
 }
 
-
 /// Support storing and retrieving dispatch group from a context
-public extension Context {
-    static func with(_ group: LLBFuturesDispatchGroup) -> Context {
-        return Context(dictionaryLiteral: (ObjectIdentifier(LLBFuturesDispatchGroup.self), group as Any))
+extension Context {
+    public static func with(_ group: LLBFuturesDispatchGroup) -> Context {
+        return Context(
+            dictionaryLiteral: (ObjectIdentifier(LLBFuturesDispatchGroup.self), group as Any))
     }
 
-    var group: LLBFuturesDispatchGroup {
+    public var group: LLBFuturesDispatchGroup {
         get {
-            guard let group = self[ObjectIdentifier(LLBFuturesDispatchGroup.self), as: LLBFuturesDispatchGroup.self] else {
+            guard
+                let group = self[
+                    ObjectIdentifier(LLBFuturesDispatchGroup.self), as: LLBFuturesDispatchGroup.self
+                ]
+            else {
                 fatalError("no futures dispatch group")
             }
             return group

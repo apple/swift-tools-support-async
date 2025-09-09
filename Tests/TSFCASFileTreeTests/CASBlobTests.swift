@@ -6,13 +6,10 @@
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
-import XCTest
-
 import TSCBasic
 import TSCUtility
-
 import TSFCASFileTree
-
+import XCTest
 
 class CASBlobTests: XCTestCase {
     var group: LLBFuturesDispatchGroup!
@@ -42,17 +39,20 @@ class CASBlobTests: XCTestCase {
 
         let db = LLBInMemoryCASDatabase(group: group)
         let ctx = Context()
-        let id = try LLBCASFileTree.import(path: tmp.path, to: db,
-            options: LLBCASFileTree.ImportOptions(fileChunkSize: chunkSize), stats: nil, ctx).wait()
+        let id = try LLBCASFileTree.import(
+            path: tmp.path, to: db,
+            options: LLBCASFileTree.ImportOptions(fileChunkSize: chunkSize), stats: nil, ctx
+        ).wait()
 
         let blob = try LLBCASBlob.parse(id: id, in: db, ctx).wait()
         XCTAssertEqual(blob.size, contents.count)
 
         // Check various read patterns.
-        for testRange in [0 ..< 0, 0 ..< 1, 0 ..< contents.count, 10 ..< 20, 20 ..< 128, 128 ..< 512] {
+        for testRange in [0..<0, 0..<1, 0..<contents.count, 10..<20, 20..<128, 128..<512] {
 
             let blobRange = try blob.read(range: testRange, ctx).wait()
-            let bytes: [UInt8] = Array(LLBByteBuffer(blobRange).readableBytesView.prefix(testRange.count))
+            let bytes: [UInt8] = Array(
+                LLBByteBuffer(blobRange).readableBytesView.prefix(testRange.count))
             XCTAssertEqual(ArraySlice(bytes), contents[testRange])
         }
     }

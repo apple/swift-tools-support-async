@@ -2,11 +2,9 @@
 //  Copyright © 2020 Apple, Inc. All rights reserved.
 //
 
-import XCTest
-
 import NIO
-
 import TSFFutures
+import XCTest
 
 class OrderManagerTests: XCTestCase {
 
@@ -22,4 +20,3 @@ class OrderManagerTests: XCTestCase {
     }
 
 }
-

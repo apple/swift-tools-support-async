@@ -7,7 +7,6 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import Foundation
-
 import NIOCore
 
 /// Something that exposes working withContiguousStorage
@@ -24,39 +23,42 @@ public enum LLBFastData {
         precondition(data.regions.count == 1)
         self = .data(data)
     }
-    public init(_ pointer: UnsafeRawBufferPointer, deallocator: @escaping (UnsafeRawBufferPointer) -> Void) {
+    public init(
+        _ pointer: UnsafeRawBufferPointer, deallocator: @escaping (UnsafeRawBufferPointer) -> Void
+    ) {
         self = .pointer(pointer, deallocator: deallocator)
     }
 
     public var count: Int {
         switch self {
-        case let .slice(data):
+        case .slice(let data):
             return data.count
-        case let .view(data):
+        case .view(let data):
             return data.readableBytes
-        case let .data(data):
+        case .data(let data):
             return data.count
-        case let .pointer(ptr, _):
+        case .pointer(let ptr, _):
             return ptr.count
         }
     }
 
-    public func withContiguousStorage<R>(_ cb: (UnsafeBufferPointer<UInt8>) throws -> R) rethrows -> R {
+    public func withContiguousStorage<R>(_ cb: (UnsafeBufferPointer<UInt8>) throws -> R) rethrows
+        -> R
+    {
         switch self {
-        case let .slice(data):
+        case .slice(let data):
             return try data.withContiguousStorageIfAvailable(cb)!
-        case let .view(data):
+        case .view(let data):
             return try data.readableBytesView.withContiguousStorageIfAvailable(cb)!
-        case let .data(data):
+        case .data(let data):
             precondition(data.regions.count == 1)
             return try data.withUnsafeBytes { rawPtr in
                 let ptr = UnsafeRawBufferPointer(rawPtr).bindMemory(to: UInt8.self)
                 return try cb(ptr)
             }
-        case let .pointer(rawPtr, _):
+        case .pointer(let rawPtr, _):
             let ptr = UnsafeRawBufferPointer(rawPtr).bindMemory(to: UInt8.self)
             return try cb(ptr)
         }
     }
 }
-

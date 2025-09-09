@@ -8,8 +8,8 @@
 
 import Foundation
 
-public extension OperationQueue {
-    convenience init(tsf_withName: String, maxConcurrentOperationCount: Int) {
+extension OperationQueue {
+    public convenience init(tsf_withName: String, maxConcurrentOperationCount: Int) {
         self.init()
         self.name = name
         self.maxConcurrentOperationCount = maxConcurrentOperationCount

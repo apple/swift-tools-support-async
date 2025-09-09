@@ -7,10 +7,8 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import Dispatch
-
 import NIO
 import NIOConcurrencyHelpers
-
 
 /// The `OrderManager` allows explicitly specify dependencies between
 /// various callbacks. This is necessary to avoid or induce race conditions
@@ -44,7 +42,9 @@ public class LLBOrderManager {
     private let cancelTimer = DispatchSource.makeTimerSource()
     private let timeout: DispatchTimeInterval
 
-    private typealias WaitListElement = (order: Int, promise: LLBPromise<Void>, file: String, line: Int)
+    private typealias WaitListElement = (
+        order: Int, promise: LLBPromise<Void>, file: String, line: Int
+    )
     private let lock = NIOConcurrencyHelpers.NIOLock()
     private var waitlist = [WaitListElement]()
     private var nextToRun = 1
@@ -52,22 +52,22 @@ public class LLBOrderManager {
     private var eventLoop: EventLoop {
         lock.withLock {
             switch groupDesignator {
-            case let .managedGroup(group):
+            case .managedGroup(let group):
                 return group.next()
-            case let .externallySuppliedGroup(group):
+            case .externallySuppliedGroup(let group):
                 return group.next()
             }
         }
     }
 
     private enum GroupDesignator {
-    case managedGroup(LLBFuturesDispatchGroup)
-    case externallySuppliedGroup(LLBFuturesDispatchGroup)
+        case managedGroup(LLBFuturesDispatchGroup)
+        case externallySuppliedGroup(LLBFuturesDispatchGroup)
     }
     private var groupDesignator: GroupDesignator
 
     public enum Error: Swift.Error {
-    case orderManagerReset(file: String, line: Int)
+        case orderManagerReset(file: String, line: Int)
     }
 
     public init(on loop: EventLoop, timeout: DispatchTimeInterval = .seconds(60)) {
@@ -89,7 +89,9 @@ public class LLBOrderManager {
 
     /// Run a specified callback in a particular order.
     @discardableResult
-    public func order<T>(_ n: Int, file: String = #file, line: Int = #line, _ callback: @escaping () throws -> T) -> EventLoopFuture<T> {
+    public func order<T>(
+        _ n: Int, file: String = #file, line: Int = #line, _ callback: @escaping () throws -> T
+    ) -> EventLoopFuture<T> {
         let promise = eventLoop.makePromise(of: Void.self)
 
         lock.withLockVoid {
@@ -120,10 +122,11 @@ public class LLBOrderManager {
 
     private func unblockWaiters() {
         let wakeup: [EventLoopPromise<Void>] = lock.withLock {
-            let wakeupPromises = waitlist
-                                .filter({$0.order <= nextToRun})
-                                .map({$0.promise})
-            waitlist = waitlist.filter({$0.order > nextToRun})
+            let wakeupPromises =
+                waitlist
+                .filter({ $0.order <= nextToRun })
+                .map({ $0.promise })
+            waitlist = waitlist.filter({ $0.order > nextToRun })
             return wakeupPromises
         }
         wakeup.forEach { $0.succeed(()) }
@@ -155,19 +158,19 @@ public class LLBOrderManager {
             return cancelList
         }
         let error = Error.orderManagerReset(file: file, line: line)
-        return toCancel.sorted(by: {$0.order < $1.order}).map {
+        return toCancel.sorted(by: { $0.order < $1.order }).map {
             $0.promise.fail(error)
             return $0.promise.futureResult.flatMapErrorThrowing { _ in () }
         }
     }
 
     deinit {
-        cancelTimer.setEventHandler { }
+        cancelTimer.setEventHandler {}
         cancelTimer.cancel()
 
         failPromises()
 
-        guard case let .managedGroup(group) = groupDesignator else {
+        guard case .managedGroup(let group) = groupDesignator else {
             return
         }
 

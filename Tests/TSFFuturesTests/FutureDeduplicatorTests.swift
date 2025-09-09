@@ -2,12 +2,9 @@
 //  Copyright © 2019 Apple, Inc. All rights reserved.
 //
 
-import XCTest
-
 import NIO
-
 import TSFFutures
-
+import XCTest
 
 class FutureDeduplicatorTests: XCTestCase {
 

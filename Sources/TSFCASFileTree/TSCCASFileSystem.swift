@@ -8,7 +8,6 @@
 
 import TSCBasic
 import TSCUtility
-
 import TSFCAS
 
 /// CAS backed FileSystem implementation rooted at the given CASTree.
@@ -52,12 +51,13 @@ public final class TSCCASFileSystem: FileSystem {
         // Move this to LLBCASFileTree.lookup()
         if result.info.type == .symlink, isDirectory(path) {
             let symlinkContents = try readFileContents(path).cString
-            return try getDirectoryContents(path.parentDirectory.appending(RelativePath(symlinkContents)))
+            return try getDirectoryContents(
+                path.parentDirectory.appending(RelativePath(symlinkContents)))
         }
 
         let entry = try self.client.load(result.id, ctx).wait()
         guard let tree = entry.tree else { throw FileSystemError(.notDirectory, path) }
-        return tree.files.map{ $0.name }
+        return tree.files.map { $0.name }
     }
 
     public func isDirectory(_ path: AbsolutePath) -> Bool {
@@ -137,7 +137,9 @@ public final class TSCCASFileSystem: FileSystem {
 
     public var cachesDirectory: AbsolutePath? { nil }
 
-    public func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
+    public func createSymbolicLink(
+        _ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool
+    ) throws {
         throw FileSystemError(.unsupported)
     }
 

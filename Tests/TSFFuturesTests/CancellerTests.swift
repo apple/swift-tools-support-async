@@ -3,12 +3,10 @@
 //
 
 import Atomics
-import XCTest
-
 import NIO
 import NIOConcurrencyHelpers
-
 import TSFFutures
+import XCTest
 
 class CancellerTests: XCTestCase {
 

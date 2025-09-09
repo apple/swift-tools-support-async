@@ -6,15 +6,11 @@
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
-
 import Dispatch
-import XCTest
-
 import TSCBasic
 import TSCUtility
-
 import TSFCASFileTree
-
+import XCTest
 
 class ImportExportTests: XCTestCase {
 
@@ -26,7 +22,7 @@ class ImportExportTests: XCTestCase {
         return options
     }
 
-    func testBasicFilesystemExport() throws{
+    func testBasicFilesystemExport() throws {
         let group = LLBMakeDefaultDispatchGroup()
         let ctx = Context()
 
@@ -39,12 +35,15 @@ class ImportExportTests: XCTestCase {
 
             let db = LLBInMemoryCASDatabase(group: group)
 
-            let inTree: LLBDeclFileTree = .dir(["a.txt": .file("hi"),
-                                            "dir": .dir(["b.txt": .file("hello"),
-                                                         "c.txt": .file("world")
-                                            ])
+            let inTree: LLBDeclFileTree = .dir([
+                "a.txt": .file("hi"),
+                "dir": .dir([
+                    "b.txt": .file("hello"),
+                    "c.txt": .file("world"),
+                ]),
             ])
-            let id = try LLBCASFSClient(db).store(inTree, ctx).wait().asDirectoryEntry(filename: "").id
+            let id = try LLBCASFSClient(db).store(inTree, ctx).wait().asDirectoryEntry(filename: "")
+                .id
 
             // Get the object.
             let tree: LLBCASFileTree
@@ -57,9 +56,12 @@ class ImportExportTests: XCTestCase {
             }
 
             // Check the result.
-            XCTAssertEqual(tree.files, [
-                LLBDirectoryEntry(name: "a.txt", type: .plainFile, size: 2),
-                LLBDirectoryEntry(name: "dir", type: .directory, size: 10)])
+            XCTAssertEqual(
+                tree.files,
+                [
+                    LLBDirectoryEntry(name: "a.txt", type: .plainFile, size: 2),
+                    LLBDirectoryEntry(name: "dir", type: .directory, size: 10),
+                ])
 
             // Export the results.
             let tmpdir2 = dir.appending(component: "second")
@@ -79,11 +81,13 @@ class ImportExportTests: XCTestCase {
         XCTAssertNoThrow(try group.syncShutdownGracefully())
     }
 
-    func testBasicFilesystemImport() throws{
+    func testBasicFilesystemImport() throws {
         let group = LLBMakeDefaultDispatchGroup()
         let ctx = Context()
 
-        for (wireFormat, expectedUploadSize) in [(LLBCASFileTree.WireFormat.binary, 68), (.compressed, 68)] {
+        for (wireFormat, expectedUploadSize) in [
+            (LLBCASFileTree.WireFormat.binary, 68), (.compressed, 68),
+        ] {
             try withTemporaryDirectory(prefix: #function, removeTreeOnDeinit: true) { dir in
                 let tmpdir = dir.appending(component: "first")
 
@@ -99,7 +103,10 @@ class ImportExportTests: XCTestCase {
                 let db = LLBInMemoryCASDatabase(group: group)
                 let stats = LLBCASFileTree.ImportProgressStats()
 
-                let id = try LLBCASFileTree.import(path: tmpdir, to: db, options: testOptions.with(wireFormat: wireFormat), stats: stats, ctx).wait()
+                let id = try LLBCASFileTree.import(
+                    path: tmpdir, to: db, options: testOptions.with(wireFormat: wireFormat),
+                    stats: stats, ctx
+                ).wait()
                 XCTAssertEqual(stats.uploadedBytes - stats.uploadedMetadataBytes, 12)
                 XCTAssertEqual(stats.uploadedBytes, expectedUploadSize)
                 XCTAssertEqual(stats.importedBytes, expectedUploadSize)
@@ -117,9 +124,12 @@ class ImportExportTests: XCTestCase {
                 }
 
                 // Check the result.
-                XCTAssertEqual(tree.files, [
-                    LLBDirectoryEntry(name: "a.txt", type: .plainFile, size: 2),
-                    LLBDirectoryEntry(name: "dir", type: .directory, size: 10)])
+                XCTAssertEqual(
+                    tree.files,
+                    [
+                        LLBDirectoryEntry(name: "a.txt", type: .plainFile, size: 2),
+                        LLBDirectoryEntry(name: "dir", type: .directory, size: 10),
+                    ])
 
                 // Export the results.
                 let tmpdir2 = dir.appending(component: "second")
@@ -153,7 +163,10 @@ class ImportExportTests: XCTestCase {
 
             let nonexistDir = somedir.appending(component: "nonexist")
             let db = LLBInMemoryCASDatabase(group: group)
-            XCTAssertThrowsError(try LLBCASFileTree.import(path: nonexistDir, to: db, options: testOptions, ctx).wait()) { error in
+            XCTAssertThrowsError(
+                try LLBCASFileTree.import(path: nonexistDir, to: db, options: testOptions, ctx)
+                    .wait()
+            ) { error in
                 XCTAssertEqual(error as? FileSystemError, FileSystemError(.noEntry, nonexistDir))
             }
         }
@@ -189,12 +202,11 @@ class ImportExportTests: XCTestCase {
             XCTAssertEqual(
                 tree.files,
                 [
-                    LLBDirectoryEntry(name: "コカコーラ", type: .symlink, size: target.utf8.count),
+                    LLBDirectoryEntry(name: "コカコーラ", type: .symlink, size: target.utf8.count)
                 ])
         }
 
         XCTAssertNoThrow(try group.syncShutdownGracefully())
     }
-
 
 }

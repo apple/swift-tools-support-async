@@ -7,10 +7,8 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import Foundation
-
-import NIOConcurrencyHelpers
 import NIO
-
+import NIOConcurrencyHelpers
 
 /// A queue for future-producing operations, which limits how many can run
 /// concurrently.
@@ -65,17 +63,24 @@ public final class LLBFutureOperationQueue: Sendable {
     /// Create a new limiter which will only initiate `maxConcurrentOperations`
     /// operations simultaneously.
     public init(maxConcurrentOperations: Int, maxConcurrentShares: Int = .max) {
-        self.state = NIOLockedValueBox(State(maxConcurrentOperations: max(1, maxConcurrentOperations)))
+        self.state = NIOLockedValueBox(
+            State(maxConcurrentOperations: max(1, maxConcurrentOperations)))
         self.maxConcurrentShares = max(1, maxConcurrentShares)
     }
 
     /// NB: calls wait() on a current thread, beware.
-    @available(*, noasync, message: "This method blocks indefinitely, don't use from 'async' or SwiftNIO EventLoops")
+    @available(
+        *, noasync,
+        message: "This method blocks indefinitely, don't use from 'async' or SwiftNIO EventLoops"
+    )
     @available(*, deprecated, message: "This method blocks indefinitely and returns a future")
-    public func enqueueWithBackpressure<T>(on loop: LLBFuturesDispatchLoop, share: Int = 1, body: @escaping () -> LLBFuture<T>) -> LLBFuture<T> {
+    public func enqueueWithBackpressure<T>(
+        on loop: LLBFuturesDispatchLoop, share: Int = 1, body: @escaping () -> LLBFuture<T>
+    ) -> LLBFuture<T> {
         let scheduled = loop.makePromise(of: Void.self)
 
-        let future: LLBFuture<T> = enqueue(on: loop, share: share, notifyWhenScheduled: scheduled, body: body)
+        let future: LLBFuture<T> = enqueue(
+            on: loop, share: share, notifyWhenScheduled: scheduled, body: body)
 
         try! scheduled.futureResult.wait()
 
@@ -89,7 +94,10 @@ public final class LLBFutureOperationQueue: Sendable {
     /// The queue can support low number of high-share loads, or high number of
     /// low-share loads. Useful to model queue size in bytes.
     /// For such use cases, set share to the payload size in bytes.
-    public func enqueue<T>(on loop: LLBFuturesDispatchLoop, share: Int = 1, notifyWhenScheduled: LLBPromise<Void>? = nil, body: @escaping () -> LLBFuture<T>) -> LLBFuture<T> {
+    public func enqueue<T>(
+        on loop: LLBFuturesDispatchLoop, share: Int = 1,
+        notifyWhenScheduled: LLBPromise<Void>? = nil, body: @escaping () -> LLBFuture<T>
+    ) -> LLBFuture<T> {
         let promise = loop.makePromise(of: T.self)
 
         func runBody() {
@@ -105,7 +113,8 @@ public final class LLBFutureOperationQueue: Sendable {
             f.cascade(to: promise)
         }
 
-        let workItem = WorkItem(loop: loop, share: share, notifyWhenScheduled: notifyWhenScheduled, run: runBody)
+        let workItem = WorkItem(
+            loop: loop, share: share, notifyWhenScheduled: notifyWhenScheduled, run: runBody)
 
         self.scheduleMoreTasks { state in
             state.workQueue.append(workItem)
@@ -125,7 +134,8 @@ public final class LLBFutureOperationQueue: Sendable {
             // If we have room to execute the operation,
             // do so immediately (outside the lock).
             while state.numExecuting < state.maxConcurrentOperations,
-                  state.numSharesInFLight < self.maxConcurrentShares {
+                state.numSharesInFLight < self.maxConcurrentShares
+            {
 
                 // Schedule a new operation, if available.
                 guard let op = state.workQueue.popFirst() else {

@@ -6,14 +6,12 @@
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
-import XCTest
-
-import TSFCAS
-import TSFCASUtilities
-import TSFCASFileTree
-
 import TSCBasic
 import TSCUtility
+import TSFCAS
+import TSFCASFileTree
+import TSFCASUtilities
+import XCTest
 
 class LinkedListStreamTests: XCTestCase {
     let group = LLBMakeDefaultDispatchGroup()
@@ -161,7 +159,6 @@ class LinkedListStreamTests: XCTestCase {
 
         XCTAssertEqual(readStream, Array(writeStream.prefix(5)))
     }
-
 
     func testStreamFromPreviousState() throws {
         let db = LLBInMemoryCASDatabase(group: group)

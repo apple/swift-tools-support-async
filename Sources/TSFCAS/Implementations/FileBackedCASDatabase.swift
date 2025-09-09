@@ -7,14 +7,12 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import Foundation
-
 import NIO
 import TSCBasic
 import TSCLibc
 import TSCUtility
 import TSFFutures
 import TSFUtility
-
 
 public final class LLBFileBackedCASDatabase: LLBCASDatabase {
     /// Prefix for files written to disk.
@@ -152,7 +150,7 @@ public final class LLBFileBackedCASDatabase: LLBCASDatabase {
         )
 
         let size = handle.flatMap { handle in
-             self.fileIO.readFileSize(
+            self.fileIO.readFileSize(
                 fileHandle: handle,
                 eventLoop: self.group.next()
             )
@@ -184,8 +182,9 @@ public struct LLBFileBackedCASDatabaseScheme: LLBCASDatabaseScheme {
         return host == nil && port == nil && path != "" && query == nil
     }
 
-    public static func open(group: LLBFuturesDispatchGroup, url: Foundation.URL) throws -> LLBCASDatabase {
+    public static func open(group: LLBFuturesDispatchGroup, url: Foundation.URL) throws
+        -> LLBCASDatabase
+    {
         return try LLBFileBackedCASDatabase(group: group, path: AbsolutePath(validating: url.path))
     }
 }
-

@@ -6,14 +6,12 @@
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
-
 import CBLAKE3
 import NIOCore
 import TSFUtility
 
-
-public extension LLBDataID {
-    init(blake3hash buffer: LLBByteBuffer, refs: [LLBDataID] = []) {
+extension LLBDataID {
+    public init(blake3hash buffer: LLBByteBuffer, refs: [LLBDataID] = []) {
         var hasher = blake3_hasher()
         blake3_hasher_init(&hasher)
 
@@ -34,14 +32,14 @@ public extension LLBDataID {
         self.init(directHash: hash)
     }
 
-    init(blake3hash data: [UInt8], refs: [LLBDataID] = []) {
+    public init(blake3hash data: [UInt8], refs: [LLBDataID] = []) {
         self.init(blake3hash: ArraySlice(data))
     }
-    init(blake3hash string: String, refs: [LLBDataID] = []) {
+    public init(blake3hash string: String, refs: [LLBDataID] = []) {
         self.init(blake3hash: ArraySlice(string.utf8))
     }
 
-    init(blake3hash slice: ArraySlice<UInt8>, refs: [LLBDataID] = []) {
+    public init(blake3hash slice: ArraySlice<UInt8>, refs: [LLBDataID] = []) {
         var hasher = blake3_hasher()
         blake3_hasher_init(&hasher)
 

@@ -6,11 +6,12 @@
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
-
 extension LLBCASFileTree {
 
     /// Search the index of a matching element consulting a given comparator.
-    public static func binarySearch<C: RandomAccessCollection>(_ elements: C, _ compare: (C.Element) -> Int) -> C.Index? {
+    public static func binarySearch<C: RandomAccessCollection>(
+        _ elements: C, _ compare: (C.Element) -> Int
+    ) -> C.Index? {
         var lo: C.Index = elements.startIndex
         var hi: C.Index = elements.index(before: elements.endIndex)
 
@@ -19,7 +20,7 @@ extension LLBCASFileTree {
             guard distance >= 0 else { break }
 
             // Compute the middle index of this iteration's search range.
-            let mid = elements.index(lo, offsetBy: distance/2)
+            let mid = elements.index(lo, offsetBy: distance / 2)
             assert(elements.distance(from: elements.startIndex, to: mid) >= 0)
             assert(elements.distance(from: mid, to: elements.endIndex) > 0)
 

@@ -7,9 +7,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import TSCBasic
-
 import TSFCAS
-
 
 public enum LLBCASFileTreeFormatError: Error {
     /// The given id was referenced as a directory, but the object encoding didn't match expectations.
@@ -33,4 +31,3 @@ public enum LLBCASFileTreeFormatError: Error {
     /// Decompression failed
     case decompressFailed(String)
 }
-

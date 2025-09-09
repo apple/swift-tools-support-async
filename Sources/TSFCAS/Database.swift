@@ -7,13 +7,10 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import Foundation
-
 import NIOCore
 import TSCUtility
-
 @_exported import TSFFutures
 @_exported import TSFUtility
-
 
 /// Error wrappers that implementations may use to communicate desired higher
 /// level responses.
@@ -102,57 +99,67 @@ public protocol LLBCASDatabase: AnyObject & Sendable {
     ///    - id: The id of the object, if known.
     ///    - refs: The list of object references.
     ///    - data: The object contents.
-    func put(knownID id: LLBDataID, refs: [LLBDataID], data: LLBByteBuffer, _ ctx: Context) -> LLBFuture<LLBDataID>
+    func put(knownID id: LLBDataID, refs: [LLBDataID], data: LLBByteBuffer, _ ctx: Context)
+        -> LLBFuture<LLBDataID>
 }
 
-public extension LLBCASDatabase {
+extension LLBCASDatabase {
     @inlinable
-    func identify(_ object: LLBCASObject, _ ctx: Context) -> LLBFuture<LLBDataID> {
+    public func identify(_ object: LLBCASObject, _ ctx: Context) -> LLBFuture<LLBDataID> {
         return identify(refs: object.refs, data: object.data, ctx)
     }
 
     @inlinable
-    func put(_ object: LLBCASObject, _ ctx: Context) -> LLBFuture<LLBDataID> {
+    public func put(_ object: LLBCASObject, _ ctx: Context) -> LLBFuture<LLBDataID> {
         return put(refs: object.refs, data: object.data, ctx)
     }
 
     @inlinable
-    func put(knownID id: LLBDataID, object: LLBCASObject, _ ctx: Context) -> LLBFuture<LLBDataID> {
+    public func put(knownID id: LLBDataID, object: LLBCASObject, _ ctx: Context) -> LLBFuture<
+        LLBDataID
+    > {
         return put(knownID: id, refs: object.refs, data: object.data, ctx)
     }
 }
 
-public extension LLBCASDatabase {
+extension LLBCASDatabase {
     @inlinable
-    func identify(refs: [LLBDataID], data: LLBByteBufferView, _ ctx: Context) -> LLBFuture<LLBDataID> {
+    public func identify(refs: [LLBDataID], data: LLBByteBufferView, _ ctx: Context) -> LLBFuture<
+        LLBDataID
+    > {
         return identify(refs: refs, data: LLBByteBuffer(data), ctx)
     }
 
     @inlinable
-    func put(refs: [LLBDataID], data: LLBByteBufferView, _ ctx: Context) -> LLBFuture<LLBDataID> {
+    public func put(refs: [LLBDataID], data: LLBByteBufferView, _ ctx: Context) -> LLBFuture<
+        LLBDataID
+    > {
         return put(refs: refs, data: LLBByteBuffer(data), ctx)
     }
 
     @inlinable
-    func put(data: LLBByteBuffer, _ ctx: Context) -> LLBFuture<LLBDataID> {
+    public func put(data: LLBByteBuffer, _ ctx: Context) -> LLBFuture<LLBDataID> {
         return self.put(refs: [], data: data, ctx)
     }
 
     @inlinable
-    func put(knownID id: LLBDataID, refs: [LLBDataID], data: LLBByteBufferView, _ ctx: Context) -> LLBFuture<LLBDataID> {
+    public func put(
+        knownID id: LLBDataID, refs: [LLBDataID], data: LLBByteBufferView, _ ctx: Context
+    ) -> LLBFuture<LLBDataID> {
         return put(knownID: id, refs: refs, data: LLBByteBuffer(data), ctx)
     }
 }
 
 /// Support storing and retrieving a CAS database from a context
-public extension Context {
-    static func with(_ db: LLBCASDatabase) -> Context {
+extension Context {
+    public static func with(_ db: LLBCASDatabase) -> Context {
         return Context(dictionaryLiteral: (ObjectIdentifier(LLBCASDatabase.self), db as Any))
     }
 
-    var db: LLBCASDatabase {
+    public var db: LLBCASDatabase {
         get {
-            guard let db = self[ObjectIdentifier(LLBCASDatabase.self), as: LLBCASDatabase.self] else {
+            guard let db = self[ObjectIdentifier(LLBCASDatabase.self), as: LLBCASDatabase.self]
+            else {
                 fatalError("no CAS database")
             }
             return db

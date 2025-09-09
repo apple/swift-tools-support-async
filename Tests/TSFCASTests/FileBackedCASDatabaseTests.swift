@@ -6,15 +6,12 @@
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
-import XCTest
 import Dispatch
-
 import NIO
 import TSCBasic
 import TSCUtility
-
 import TSFCAS
-
+import XCTest
 
 class FileBackedCASDatabaseTests: XCTestCase {
 
@@ -40,13 +37,15 @@ class FileBackedCASDatabaseTests: XCTestCase {
     /// ${TMPDIR} or just "/tmp", expressed as AbsolutePath
     private var temporaryPath: AbsolutePath {
         get throws {
-            return try AbsolutePath(validating: ProcessInfo.processInfo.environment["TMPDIR", default: "/tmp"])
+            return try AbsolutePath(
+                validating: ProcessInfo.processInfo.environment["TMPDIR", default: "/tmp"])
         }
     }
 
-
     func testBasics() throws {
-        try withTemporaryDirectory(dir: temporaryPath, prefix: "LLBUtilTests" + #function, removeTreeOnDeinit: true) { tmpDir in
+        try withTemporaryDirectory(
+            dir: temporaryPath, prefix: "LLBUtilTests" + #function, removeTreeOnDeinit: true
+        ) { tmpDir in
             let db = LLBFileBackedCASDatabase(group: group, path: tmpDir)
             let ctx = Context()
 
@@ -66,13 +65,17 @@ class FileBackedCASDatabaseTests: XCTestCase {
             XCTAssertEqual(obj2.data, LLBByteBuffer.withBytes([4, 5, 6]))
 
             // Check contains on a missing object.
-            let missingID = try LLBInMemoryCASDatabase(group: group).identify(data: LLBByteBuffer.withBytes([]), ctx).wait()
+            let missingID = try LLBInMemoryCASDatabase(group: group).identify(
+                data: LLBByteBuffer.withBytes([]), ctx
+            ).wait()
             XCTAssertEqual(try db.contains(missingID, ctx).wait(), false)
         }
     }
 
     func testPutStressTest() throws {
-        try withTemporaryDirectory(dir: temporaryPath, prefix: "LLBUtilTests" + #function, removeTreeOnDeinit: true) { tmpDir in
+        try withTemporaryDirectory(
+            dir: temporaryPath, prefix: "LLBUtilTests" + #function, removeTreeOnDeinit: true
+        ) { tmpDir in
             let db = LLBFileBackedCASDatabase(group: group, path: tmpDir)
             let ctx = Context()
             let queue = DispatchQueue(label: "sync")
@@ -87,7 +90,7 @@ class FileBackedCASDatabaseTests: XCTestCase {
             let allocator = LLBByteBufferAllocator()
             func makeData(i: Int, objectSize: Int = 16) -> LLBByteBuffer {
                 var buffer = allocator.buffer(capacity: objectSize)
-                for j in 0 ..< objectSize {
+                for j in 0..<objectSize {
                     buffer.writeInteger(UInt8((i + j) & 0xFF))
                 }
                 return buffer
@@ -101,7 +104,7 @@ class FileBackedCASDatabaseTests: XCTestCase {
                 }
             }
 
-            for i in 0 ..< numObjects {
+            for i in 0..<numObjects {
                 guard let result = try db.get(objects[i]!, ctx).wait() else {
                     XCTFail("missing expected object")
                     return

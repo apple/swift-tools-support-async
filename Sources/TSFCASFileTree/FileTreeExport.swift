@@ -8,14 +8,11 @@
 
 import Atomics
 import Foundation
-
-import NIOCore
 import NIOConcurrencyHelpers
+import NIOCore
 import TSCBasic
 import TSCUtility
-
 import TSFCAS
-
 
 public enum LLBExportError: Error {
     /// The given id was referenced as a directory, but the object encoding didn't match expectations.
@@ -48,7 +45,11 @@ public enum LLBExportIOError: Error {
     case uncompressFailed(path: AbsolutePath)
 }
 
-@available(*, deprecated, message: "New clients should use LLBCASFileTreeExportProgressStatsInt64 to prevent wrong stats due to overflow.")
+@available(
+    *, deprecated,
+    message:
+        "New clients should use LLBCASFileTreeExportProgressStatsInt64 to prevent wrong stats due to overflow."
+)
 public protocol LLBCASFileTreeExportProgressStats: AnyObject {
     var bytesDownloaded: Int { get }
     var bytesExported: Int { get }
@@ -69,9 +70,9 @@ public protocol LLBCASFileTreeExportProgressStatsInt64: AnyObject {
     var debugDescription: String { get }
 }
 
-public extension LLBCASFileTree {
-    
-    final class ExportProgressStatsInt64: LLBCASFileTreeExportProgressStatsInt64 {
+extension LLBCASFileTree {
+
+    public final class ExportProgressStatsInt64: LLBCASFileTreeExportProgressStatsInt64 {
         /// Bytes moved over the wire
         internal let bytesDownloaded_ = ManagedAtomic<Int64>(0)
         /// Bytes logically copied over
@@ -90,7 +91,9 @@ public extension LLBCASFileTree {
         public var bytesToExport: Int64 { bytesToExport_.load(ordering: .relaxed) }
         public var objectsExported: Int64 { objectsExported_.load(ordering: .relaxed) }
         public var objectsToExport: Int64 { objectsToExport_.load(ordering: .relaxed) }
-        public var downloadsInProgressObjects: Int64 { downloadsInProgressObjects_.load(ordering: .relaxed) }
+        public var downloadsInProgressObjects: Int64 {
+            downloadsInProgressObjects_.load(ordering: .relaxed)
+        }
 
         public var debugDescription: String {
             return """
@@ -103,11 +106,15 @@ public extension LLBCASFileTree {
                 """
         }
 
-        public init() { }
+        public init() {}
     }
 
-    @available(*, deprecated, message: "New clients should use ExportProgressStatsInt64 to prevent wrong stats due to overflow.")
-    final class ExportProgressStats: LLBCASFileTreeExportProgressStats {
+    @available(
+        *, deprecated,
+        message:
+            "New clients should use ExportProgressStatsInt64 to prevent wrong stats due to overflow."
+    )
+    public final class ExportProgressStats: LLBCASFileTreeExportProgressStats {
         internal let exportProgressStatsInt64 = ExportProgressStatsInt64()
 
         public var bytesDownloaded: Int { Int(clamping: exportProgressStatsInt64.bytesDownloaded) }
@@ -115,7 +122,9 @@ public extension LLBCASFileTree {
         public var bytesToExport: Int { Int(clamping: exportProgressStatsInt64.bytesToExport) }
         public var objectsExported: Int { Int(clamping: exportProgressStatsInt64.objectsExported) }
         public var objectsToExport: Int { Int(clamping: exportProgressStatsInt64.objectsToExport) }
-        public var downloadsInProgressObjects: Int { Int(clamping: exportProgressStatsInt64.downloadsInProgressObjects) }
+        public var downloadsInProgressObjects: Int {
+            Int(clamping: exportProgressStatsInt64.downloadsInProgressObjects)
+        }
 
         public var debugDescription: String {
             // Not using the description from ExportProgressStatsInt64, because there can be differences in the case of overflow and don't want inconsistencies between the debug description and the numbers we are reporting here. If clients want the right numbers in all cases, they should use ExportProgressStatsInt64.
@@ -129,7 +138,7 @@ public extension LLBCASFileTree {
                 """
         }
 
-        public init() { }
+        public init() {}
     }
 
     /// Export an entire filesystem subtree [to disk].
@@ -139,8 +148,12 @@ public extension LLBCASFileTree {
     ///   - from:           The database to import the content into.
     ///   - to:             The path to write the content to.
     ///   - materializer:   How to save files [to disk].
-    @available(*, deprecated, message: "Please use export with the ExportProgressStatsInt64 stats to prevent wrong stats due to overflow.")
-    static func export(
+    @available(
+        *, deprecated,
+        message:
+            "Please use export with the ExportProgressStatsInt64 stats to prevent wrong stats due to overflow."
+    )
+    public static func export(
         _ id: LLBDataID,
         from db: LLBCASDatabase,
         to exportPathPrefix: AbsolutePath,
@@ -149,9 +162,11 @@ public extension LLBCASFileTree {
         stats: ExportProgressStats? = nil,
         _ ctx: Context
     ) -> LLBFuture<Void> {
-        export(id, from: db, to: exportPathPrefix, materializer: materializer, storageBatcher: storageBatcher, stats: stats?.exportProgressStatsInt64 ?? .init(), ctx)
+        export(
+            id, from: db, to: exportPathPrefix, materializer: materializer,
+            storageBatcher: storageBatcher, stats: stats?.exportProgressStatsInt64 ?? .init(), ctx)
     }
-    
+
     /// Export an entire filesystem subtree [to disk].
     ///
     /// - Parameters:
@@ -159,7 +174,7 @@ public extension LLBCASFileTree {
     ///   - from:           The database to import the content into.
     ///   - to:             The path to write the content to.
     ///   - materializer:   How to save files [to disk].
-    static func export(
+    public static func export(
         _ id: LLBDataID,
         from db: LLBCASDatabase,
         to exportPathPrefix: AbsolutePath,
@@ -170,14 +185,15 @@ public extension LLBCASFileTree {
     ) -> LLBFuture<Void> {
         let storageBatcher = storageBatcher ?? ctx.fileTreeExportStorageBatcher
         let stats = stats
-        let delegate = CASFileTreeWalkerDelegate(from: db, to: exportPathPrefix, materializer: materializer, storageBatcher: storageBatcher, stats: stats)
+        let delegate = CASFileTreeWalkerDelegate(
+            from: db, to: exportPathPrefix, materializer: materializer,
+            storageBatcher: storageBatcher, stats: stats)
 
         let walker = ConcurrentHierarchyWalker(group: db.group, delegate: delegate)
         stats.objectsToExport_.wrappingIncrement(ordering: .relaxed)
         return walker.walk(.init(id: id, exportPath: exportPathPrefix, kindHint: nil), ctx)
     }
 }
-
 
 private final class CASFileTreeWalkerDelegate: RetrieveChildrenProtocol {
     let db: LLBCASDatabase
@@ -194,7 +210,12 @@ private final class CASFileTreeWalkerDelegate: RetrieveChildrenProtocol {
 
     let allocator = LLBByteBufferAllocator()
 
-    init(from db: LLBCASDatabase, to exportPathPrefix: AbsolutePath, materializer: LLBFilesystemObjectMaterializer, storageBatcher: LLBBatchingFutureOperationQueue?, stats: LLBCASFileTree.ExportProgressStatsInt64) {
+    init(
+        from db: LLBCASDatabase, to exportPathPrefix: AbsolutePath,
+        materializer: LLBFilesystemObjectMaterializer,
+        storageBatcher: LLBBatchingFutureOperationQueue?,
+        stats: LLBCASFileTree.ExportProgressStatsInt64
+    ) {
         self.db = db
         self.exportPathPrefix = exportPathPrefix
         self.materializer = materializer
@@ -207,49 +228,56 @@ private final class CASFileTreeWalkerDelegate: RetrieveChildrenProtocol {
 
         stats.downloadsInProgressObjects_.wrappingIncrement(ordering: .relaxed)
 
-        let casObjectFuture: LLBFuture<LLBCASObject> = db.get(item.id, ctx).flatMapThrowing { casObject in
+        let casObjectFuture: LLBFuture<LLBCASObject> = db.get(item.id, ctx).flatMapThrowing {
+            casObject in
             self.stats.downloadsInProgressObjects_.wrappingDecrement(ordering: .relaxed)
 
             guard let casObject = casObject else {
                 throw LLBExportError.missingReference(item.id)
             }
 
-            self.stats.bytesDownloaded_.wrappingIncrement(by: Int64(casObject.data.readableBytes), ordering: .relaxed)
+            self.stats.bytesDownloaded_.wrappingIncrement(
+                by: Int64(casObject.data.readableBytes), ordering: .relaxed)
 
             return casObject
         }
 
         if let batcher = self.storageBatcher {
-          return casObjectFuture.flatMap { casObject in
-            // Unblock the current NIO thread.
-            batcher.execute {
+            return casObjectFuture.flatMap { casObject in
+                // Unblock the current NIO thread.
+                batcher.execute {
+                    try self.parseAndMaterialize(casObject, item).map {
+                        Item(id: $0.id, exportPath: $0.path, kindHint: $0.kind)
+                    }
+                }
+            }
+        } else {
+            return casObjectFuture.flatMapThrowing { casObject in
                 try self.parseAndMaterialize(casObject, item).map {
                     Item(id: $0.id, exportPath: $0.path, kindHint: $0.kind)
                 }
             }
-          }
-        } else {
-          return casObjectFuture.flatMapThrowing { casObject in
-            try self.parseAndMaterialize(casObject, item).map {
-                Item(id: $0.id, exportPath: $0.path, kindHint: $0.kind)
-            }
-          }
         }
     }
-
 
     /// Parse (may include buffer management, uncompression, copying)
     /// and materialize (going to the file system). This may or may not
     /// be run on the NIO threads, so don't wait().
-    private func parseAndMaterialize(_ casObject: LLBCASObject, _ item: Item) throws -> [AnnotatedCASTreeChunk] {
-        let (fsObject, others) = try CASFileTreeParser(for: self.exportPathPrefix, allocator: allocator).parseCASObject(id: item.id, path: item.exportPath, casObject: casObject, kind: item.kindHint)
+    private func parseAndMaterialize(_ casObject: LLBCASObject, _ item: Item) throws
+        -> [AnnotatedCASTreeChunk]
+    {
+        let (fsObject, others) = try CASFileTreeParser(
+            for: self.exportPathPrefix, allocator: allocator
+        ).parseCASObject(
+            id: item.id, path: item.exportPath, casObject: casObject, kind: item.kindHint)
 
         // Save some statistics.
         if case .directory = fsObject.content {
             var aggregateSize: Int = 0
 
             for entry in others {
-                let (newAggregate, overflow) = aggregateSize.addingReportingOverflow(Int(clamping: entry.kind.overestimatedSize))
+                let (newAggregate, overflow) = aggregateSize.addingReportingOverflow(
+                    Int(clamping: entry.kind.overestimatedSize))
                 aggregateSize = newAggregate
                 assert(!overflow)
             }
@@ -268,7 +296,8 @@ private final class CASFileTreeWalkerDelegate: RetrieveChildrenProtocol {
                 guard aggregateSize > old else { break }
                 guard
                     !self.stats.bytesToExport_.compareExchange(
-                        expected: old, desired: Int64(aggregateSize), ordering: .sequentiallyConsistent
+                        expected: old, desired: Int64(aggregateSize),
+                        ordering: .sequentiallyConsistent
                     ).0
                 else {
                     break
@@ -281,8 +310,10 @@ private final class CASFileTreeWalkerDelegate: RetrieveChildrenProtocol {
         } catch {
             throw LLBExportError.ioError(error)
         }
-        stats.bytesExported_.wrappingIncrement(by: Int64(fsObject.accountedDataSize), ordering: .relaxed)
-        stats.objectsExported_.wrappingIncrement(by: Int64(fsObject.accountedObjects), ordering: .relaxed)
+        stats.bytesExported_.wrappingIncrement(
+            by: Int64(fsObject.accountedDataSize), ordering: .relaxed)
+        stats.objectsExported_.wrappingIncrement(
+            by: Int64(fsObject.accountedObjects), ordering: .relaxed)
         return others
     }
 }

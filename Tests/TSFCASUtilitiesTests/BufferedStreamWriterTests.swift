@@ -6,13 +6,11 @@
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
-import XCTest
-
-import TSFCAS
-import TSFCASUtilities
-
 import TSCBasic
 import TSCUtility
+import TSFCAS
+import TSFCASUtilities
+import XCTest
 
 class BufferedStreamWriterTests: XCTestCase {
     let group = LLBMakeDefaultDispatchGroup()
@@ -52,7 +50,8 @@ class BufferedStreamWriterTests: XCTestCase {
         }.wait()
 
         XCTAssertEqual(timesCalled, 1)
-        XCTAssertEqual(Data(readBuffer.readableBytesView), Data(LLBByteBufferView(repeating: 65, count: 32)))
+        XCTAssertEqual(
+            Data(readBuffer.readableBytesView), Data(LLBByteBufferView(repeating: 65, count: 32)))
     }
 
     func testDifferentChannels() throws {
@@ -94,7 +93,8 @@ class BufferedStreamWriterTests: XCTestCase {
         }.wait()
 
         XCTAssertEqual(timesCalled, 2)
-        XCTAssertEqual(Data(readBuffer.readableBytesView), Data(LLBByteBufferView(repeating: 65, count: 32)))
+        XCTAssertEqual(
+            Data(readBuffer.readableBytesView), Data(LLBByteBufferView(repeating: 65, count: 32)))
         XCTAssertEqual(channelsRead, [0, 1])
     }
 }

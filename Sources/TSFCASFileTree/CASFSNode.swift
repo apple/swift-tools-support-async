@@ -7,9 +7,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import Foundation
-
 import TSFCAS
-
 
 /// A CAS object (can be tree or blob)
 public struct LLBCASFSNode {
@@ -73,9 +71,9 @@ public struct LLBCASFSNode {
 
     public func asDirectoryEntry(filename: String) -> LLBDirectoryEntryID {
         switch value {
-        case let .tree(tree):
+        case .tree(let tree):
             return tree.asDirectoryEntry(filename: filename)
-        case let .blob(blob):
+        case .blob(let blob):
             return blob.asDirectoryEntry(filename: filename)
         }
     }

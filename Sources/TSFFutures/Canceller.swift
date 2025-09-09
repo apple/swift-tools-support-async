@@ -25,10 +25,10 @@ public final class LLBCanceller {
 
     /// A reason for reaching the final state.
     private enum FinalReason {
-    /// Cancelled with a specified reason.
-    case cancelled(reason: String)
-    /// Cancellation won't be needed.
-    case abandoned
+        /// Cancelled with a specified reason.
+        case cancelled(reason: String)
+        /// Cancellation won't be needed.
+        case abandoned
     }
 
     public init(_ cancelHandler: LLBCancelProtocol? = nil) {
@@ -49,7 +49,7 @@ public final class LLBCanceller {
     /// Return the reason for cancelling.
     public var cancelReason: String? {
         mutex_.lock()
-        guard case let .cancelled(reason)? = finalReason_ else {
+        guard case .cancelled(let reason)? = finalReason_ else {
             mutex_.unlock()
             return nil
         }
@@ -108,7 +108,7 @@ public final class LLBCanceller {
 }
 
 // Allow Canceller serve as a cancellation handler.
-extension LLBCanceller: LLBCancelProtocol { }
+extension LLBCanceller: LLBCancelProtocol {}
 
 /// Create a chain of single-purpose handlers.
 public final class LLBCancelHandlersChain: LLBCancelProtocol {

@@ -11,14 +11,20 @@ import TSCUtility
 private final class ContextKey {}
 
 /// Support storing and retrieving file tree import options from a context
-public extension Context {
-    static func with(_ options: LLBCASFileTree.ImportOptions) -> Context {
-        return Context(dictionaryLiteral: (ObjectIdentifier(LLBCASFileTree.ImportOptions.self), options as Any))
+extension Context {
+    public static func with(_ options: LLBCASFileTree.ImportOptions) -> Context {
+        return Context(
+            dictionaryLiteral: (ObjectIdentifier(LLBCASFileTree.ImportOptions.self), options as Any)
+        )
     }
 
-    var fileTreeImportOptions: LLBCASFileTree.ImportOptions? {
+    public var fileTreeImportOptions: LLBCASFileTree.ImportOptions? {
         get {
-            guard let options = self[ObjectIdentifier(LLBCASFileTree.ImportOptions.self), as: LLBCASFileTree.ImportOptions.self] else {
+            guard
+                let options = self[
+                    ObjectIdentifier(LLBCASFileTree.ImportOptions.self),
+                    as: LLBCASFileTree.ImportOptions.self]
+            else {
                 return nil
             }
 
@@ -31,12 +37,16 @@ public extension Context {
 }
 
 /// Support storing and retrieving file tree export storage batcher from a context
-public extension Context {
+extension Context {
     private static let fileTreeExportStorageBatcherKey = ContextKey()
 
-    var fileTreeExportStorageBatcher: LLBBatchingFutureOperationQueue? {
+    public var fileTreeExportStorageBatcher: LLBBatchingFutureOperationQueue? {
         get {
-            guard let options = self[ObjectIdentifier(Self.fileTreeExportStorageBatcherKey), as: LLBBatchingFutureOperationQueue.self] else {
+            guard
+                let options = self[
+                    ObjectIdentifier(Self.fileTreeExportStorageBatcherKey),
+                    as: LLBBatchingFutureOperationQueue.self]
+            else {
                 return nil
             }
 

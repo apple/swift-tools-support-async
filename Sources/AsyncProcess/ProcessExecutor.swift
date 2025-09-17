@@ -903,6 +903,9 @@ public final actor ProcessExecutor {
                         ignoreWriteErrors: self.spawnOptions.ignoreStdinStreamWriteErrors,
                         eventLoop: self.group.any()
                     )
+                } catch is CancellationError {
+                    // The CancellationError comes from us cancelling this task when the process exits, and is expected. Don't surface an error in this case.
+                    return .stdinWriter(nil)
                 } catch {
                     return .stdinWriter(error)
                 }

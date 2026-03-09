@@ -81,7 +81,8 @@ let package = Package(
             name: "TSFCProcessSpawnSync",
             path: "Sources/CProcessSpawnSync",
             cSettings: [
-                .define("_GNU_SOURCE")
+                .define("_GNU_SOURCE"),
+                .define("_LARGEFILE64_SOURCE")
             ]
         ),
         .target(

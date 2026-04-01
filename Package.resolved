@@ -66,7 +66,7 @@
       },
       {
         "package": "swift-tools-support-core",
-        "repositoryURL": "https://github.com/apple/swift-tools-support-core.git",
+        "repositoryURL": "https://github.com/swiftlang/swift-tools-support-core.git",
         "state": {
           "branch": null,
           "revision": "ad2fc22a00b898c7af5d8c74a555666f67a06720",

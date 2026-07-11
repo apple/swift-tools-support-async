@@ -10,7 +10,6 @@ import Dispatch
 import Foundation
 import NIOCore
 import TSCBasic
-import TSCUtility
 @_exported import TSFCAS
 
 public enum LLBCASFileTreeError: Error {

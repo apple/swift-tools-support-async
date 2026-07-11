@@ -112,12 +112,12 @@ static int highest_possibly_open_fd(void) {
 #if defined(__APPLE__)
     int hi = highest_possibly_open_fd_dir_syscall("/dev/fd");
     if (hi < 0) {
-        hi = getdtablesize();
+        hi = (int)sysconf(_SC_OPEN_MAX);
     }
 #elif defined(__linux__)
     int hi = highest_possibly_open_fd_dir_syscall("/proc/self/fd");
     if (hi < 0) {
-        hi = getdtablesize();
+        hi = (int)sysconf(_SC_OPEN_MAX);
     }
 #else
     int hi = 1024;

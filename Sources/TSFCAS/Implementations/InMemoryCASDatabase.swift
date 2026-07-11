@@ -9,7 +9,6 @@
 import Foundation
 import NIOConcurrencyHelpers
 import NIOCore
-import TSCUtility
 import TSFFutures
 import TSFUtility
 

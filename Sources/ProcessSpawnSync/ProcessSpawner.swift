@@ -21,6 +21,9 @@ import TSFCProcessSpawnSync
     #error("Process and fork() unavailable")
 #else
     import Foundation
+    #if canImport(Android)
+        import Android
+    #endif
 #endif
 
 extension llb_ps_error_s {

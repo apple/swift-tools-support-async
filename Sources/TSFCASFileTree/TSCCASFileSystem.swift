@@ -7,7 +7,6 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 
 import TSCBasic
-import TSCUtility
 import TSFCAS
 
 /// CAS backed FileSystem implementation rooted at the given CASTree.

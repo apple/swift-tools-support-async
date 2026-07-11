@@ -12,7 +12,6 @@ import NIO
 import NIOConcurrencyHelpers
 import TSCBasic
 import TSCLibc
-import TSCUtility
 import TSFCAS
 
 public protocol LLBCASFileTreeImportProgressStats: AnyObject {

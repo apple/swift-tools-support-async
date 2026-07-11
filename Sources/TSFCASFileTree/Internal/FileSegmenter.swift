@@ -10,6 +10,9 @@ import Atomics
 import Foundation
 import NIOConcurrencyHelpers
 import TSCBasic
+#if canImport(Android)
+    import Android
+#endif
 
 /// FileSegmenter is to facilitate slicing the file into fixed chunks
 /// in a way that optimizes for memory and file descriptors' usage
@@ -152,10 +155,17 @@ internal final class FileSegmenter {
         }
 
         // This is a large file, mmap it and retain the mapping until EOL.
-        let mmapReturnValue = mmap(nil, reportedSize, PROT_READ, MAP_FILE | MAP_PRIVATE, fd, 0)
-        guard let basePointer = mmapReturnValue, basePointer != MAP_FAILED else {
-            throw FileSystemError(errno: errno, path)
-        }
+        #if canImport(Android)
+            let basePointer = mmap(nil, reportedSize, PROT_READ, MAP_FILE | MAP_PRIVATE, fd, 0)
+            guard Int(bitPattern: basePointer) != -1 else {
+                throw FileSystemError(errno: errno, path)
+            }
+        #else
+            let mmapReturnValue = mmap(nil, reportedSize, PROT_READ, MAP_FILE | MAP_PRIVATE, fd, 0)
+            guard let basePointer = mmapReturnValue, basePointer != MAP_FAILED else {
+                throw FileSystemError(errno: errno, path)
+            }
+        #endif
 
         posix_madvise(basePointer, reportedSize, POSIX_MADV_SEQUENTIAL | POSIX_MADV_WILLNEED)
 

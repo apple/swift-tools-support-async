@@ -8,7 +8,6 @@
 
 import Dispatch
 import TSCBasic
-import TSCUtility
 import TSFCASFileTree
 import XCTest
 

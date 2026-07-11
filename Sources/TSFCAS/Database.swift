@@ -8,7 +8,6 @@
 
 import Foundation
 import NIOCore
-import TSCUtility
 @_exported import TSFFutures
 @_exported import TSFUtility
 

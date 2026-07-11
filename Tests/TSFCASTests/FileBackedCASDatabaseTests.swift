@@ -9,7 +9,6 @@
 import Dispatch
 import NIO
 import TSCBasic
-import TSCUtility
 import TSFCAS
 import XCTest
 

@@ -10,7 +10,6 @@ import Foundation
 import NIO
 import TSCBasic
 import TSCLibc
-import TSCUtility
 import TSFFutures
 import TSFUtility
 

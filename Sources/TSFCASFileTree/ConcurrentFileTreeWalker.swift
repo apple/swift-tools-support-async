@@ -10,7 +10,6 @@ import Foundation
 import NIOConcurrencyHelpers
 import NIOCore
 import TSCBasic
-import TSCUtility
 import TSFCAS
 
 protocol RetrieveChildrenProtocol: AnyObject {

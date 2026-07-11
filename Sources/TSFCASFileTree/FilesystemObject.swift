@@ -8,6 +8,9 @@
 
 import Foundation
 import TSCBasic
+#if canImport(Android)
+    import Android
+#endif
 
 public protocol LLBFilesystemObjectMaterializer: AnyObject {
     func materialize(object: LLBFilesystemObject) throws

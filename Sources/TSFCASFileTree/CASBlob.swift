@@ -157,6 +157,9 @@ public struct LLBCASBlob {
     }
 
     public func read(range: Range<Int>, _ ctx: Context) -> LLBFuture<LLBByteBufferView> {
+        guard range.count <= UInt32.max else {
+            return db.group.next().makeFailedFuture(LLBCASBlobError.badRange)
+        }
         guard range.lowerBound >= 0, range.upperBound <= size else {
             return db.group.next().makeFailedFuture(LLBCASBlobError.badRange)
         }

@@ -1,0 +1,13 @@
+extends: default
+
+# The vendored BLAKE3 submodule is third-party code that we do not lint.
+# `.build` holds generated SwiftPM output.
+ignore: |
+  ThirdParty/
+  .build/
+
+rules:
+  line-length: false
+  document-start: false
+  truthy:
+    check-keys: false  # Otherwise we get a false positive on GitHub action's `on` key

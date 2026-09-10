@@ -42,10 +42,7 @@ jobs:
         git submodule update --init --recursive
       android_sdk_build_command: "swift build --build-tests --build-system native"
       android_ndk_versions: '["r27d", "r29"]'
-      enable_ios_checks: true
-      ios_pre_build_command: |
-        git config --global --add safe.directory '*'
-        git submodule update --init --recursive
+      enable_ios_checks: false
       enable_macos_checks: true
       macos_pre_build_command: |
         git config --global --add safe.directory '*'

@@ -10,6 +10,9 @@ import Foundation
 import NIOCore
 import TSCBasic
 import TSFFutures
+#if canImport(Android)
+    import Android
+#endif
 
 /// Asynchronous file system interface integrated with `Future`s.
 public struct LLBFutureFileSystem {

@@ -8,7 +8,6 @@
 
 import NIO
 import TSCBasic
-import TSCUtility
 
 public typealias LLBFuture<T> = NIO.EventLoopFuture<T>
 public typealias LLBPromise<T> = NIO.EventLoopPromise<T>

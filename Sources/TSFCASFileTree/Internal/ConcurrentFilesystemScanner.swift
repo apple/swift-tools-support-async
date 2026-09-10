@@ -10,6 +10,9 @@ import Foundation
 import NIO
 import NIOConcurrencyHelpers
 import TSCBasic
+#if canImport(Android)
+    import Android
+#endif
 
 /// A thread-safe concurrent scan of the filesystem.
 /// Beware of the file descriptor requirements: each open directory
@@ -322,7 +325,7 @@ class FilesystemDirectoryIterator: IteratorProtocol {
     private let dirLock = NIOConcurrencyHelpers.NIOLock()
     #if canImport(Darwin)
         private var dir: UnsafeMutablePointer<DIR>!
-    #elseif os(Linux)
+    #elseif os(Linux) || os(Android)
         private var dir: OpaquePointer!
     #else
         #error("Unsupported platform")
@@ -458,7 +461,7 @@ public enum FilesystemObjectType: UInt8 {
             default: self = .UNKNOWN
             }
         #else
-            switch Int(d_type) {
+            switch CInt(d_type) {
             case DT_UNKNOWN: self = .UNKNOWN
             case DT_FIFO: self = .FIFO
             case DT_CHR: self = .CHR

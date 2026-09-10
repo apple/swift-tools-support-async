@@ -8,7 +8,6 @@
 
 import Foundation
 import NIOCore
-import TSCUtility
 
 /// Run the given computations on a given array in batches, exercising
 /// a specified amount of parallelism.
@@ -109,9 +108,25 @@ public struct LLBBatchingFutureOperationQueue: Sendable {
         _ args: [A], minStride: Int = 1, maxStride: Int = Int.max,
         _ body: @escaping (ArraySlice<A>) throws -> [T]
     ) -> [LLBFuture<[T]>] {
-        let batches: [ArraySlice<A>] = args.tsc_sliceBy(
+        let batches: [ArraySlice<A>] = args.tsf_sliceBy(
             maxStride: max(minStride, min(maxStride, args.count / maxOpCount)))
         return batches.map { arg in execute { try body(arg) } }
     }
 
+}
+
+// Vendored from `swift-tools-support-core`'s `TSCUtility.Array.tsc_sliceBy`, which was removed
+// upstream in 0.8.0 (https://github.com/swiftlang/swift-tools-support-core/commit/c574915).
+extension Array {
+    /// Make several slices out of a given array.
+    /// - Returns:
+    ///   An array of slices of `maxStride` elements each.
+    @usableFromInline
+    func tsf_sliceBy(maxStride: Int) -> [ArraySlice<Element>] {
+        let elementsCount = self.count
+        let groupsCount = (elementsCount + maxStride - 1) / maxStride
+        return (0..<groupsCount).map({ n in
+            self[n * maxStride..<Swift.min(elementsCount, (n + 1) * maxStride)]
+        })
+    }
 }

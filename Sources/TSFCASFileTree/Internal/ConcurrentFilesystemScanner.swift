@@ -447,7 +447,7 @@ public enum FilesystemObjectType: UInt8 {
 
     /// Initialize from dirent's d_type.
     public init(d_type: UInt8) {
-        #if canImport(Darwin) || canImport(Musl)
+        #if canImport(Darwin) || canImport(Musl) || canImport(Android)
             switch CInt(d_type) {
             case DT_UNKNOWN: self = .UNKNOWN
             case DT_FIFO: self = .FIFO
@@ -461,7 +461,7 @@ public enum FilesystemObjectType: UInt8 {
             default: self = .UNKNOWN
             }
         #else
-            switch CInt(d_type) {
+            switch Int(d_type) {
             case DT_UNKNOWN: self = .UNKNOWN
             case DT_FIFO: self = .FIFO
             case DT_CHR: self = .CHR

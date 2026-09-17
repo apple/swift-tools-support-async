@@ -31,7 +31,10 @@
 
 #include "internal-helpers.h"
 
-#if __has_include(<linux/close_range.h>)
+// Android's kernel headers expose <linux/close_range.h> (so __has_include succeeds below), but
+// Bionic's libc doesn't export the close_range() symbol until API level 34, so linking against it
+// unconditionally fails on our android28 minimum. Always take the manual-iteration fallback there.
+#if __has_include(<linux/close_range.h>) && !defined(__ANDROID__)
 int close_range(unsigned int first, unsigned int last, int flags);
 #endif
 
@@ -158,7 +161,7 @@ static void setup_and_execve_child(llb_ps_process_configuration *config, int err
     if (config->psc_close_other_fds) {
         int close_range_err = -1;
         errno = ENOSYS;
-#if __has_include(<linux/close_range.h>)
+#if __has_include(<linux/close_range.h>) && !defined(__ANDROID__)
         if (error_pipe > config->psc_fd_setup_count) {
             // We mustn't close `error_pipe`.
             close_range_err = close_range(config->psc_fd_setup_count, error_pipe - 1, 0);

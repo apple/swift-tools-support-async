@@ -10,6 +10,9 @@ import Dispatch
 import TSCBasic
 import TSFCASFileTree
 import XCTest
+#if canImport(Android)
+    import Android
+#endif
 
 class ImportExportTests: XCTestCase {
 

@@ -12,6 +12,7 @@ extension LLBCASFileTree {
     public static func binarySearch<C: RandomAccessCollection>(
         _ elements: C, _ compare: (C.Element) -> Int
     ) -> C.Index? {
+        guard !elements.isEmpty else { return nil }
         var lo: C.Index = elements.startIndex
         var hi: C.Index = elements.index(before: elements.endIndex)
 
